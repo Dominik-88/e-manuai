@@ -1,32 +1,40 @@
 <!doctype html>
-<html lang="en">
+<html lang="cs">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
     <title>e-ManuAI - Barbieri XRot 95 EVO</title>
-    <meta name="description" content="by Dominik Schmied">
-    <meta name="author" content="Lovable" />
-
-    <!-- TODO: Update og:title to match your application name -->
+    <meta name="description" content="Profesionální provozní systém pro autonomní sekací robot Barbieri XRot 95 EVO">
+    <meta name="author" content="Dominik Schmied">
     
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#16213e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="e-ManuAI" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192x192.png" />
+    <link rel="icon" href="/favicon.ico" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="e-ManuAI - Barbieri XRot 95 EVO" />
+    <meta property="og:description" content="Profesionální provozní systém pro autonomní sekací robot" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
     
-  
-  
-  
-  <meta property="og:title" content="e-ManuAI - Barbieri XRot 95 EVO">
-  <meta name="twitter:title" content="e-ManuAI - Barbieri XRot 95 EVO">
-  <meta property="og:description" content="by Dominik Schmied">
-  <meta name="twitter:description" content="by Dominik Schmied">
-</head>
-
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="e-ManuAI - Barbieri XRot 95 EVO" />
+    <meta name="twitter:description" content="Profesionální provozní systém pro autonomní sekací robot" />
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
