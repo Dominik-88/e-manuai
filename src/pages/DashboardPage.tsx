@@ -1,16 +1,15 @@
 import React from 'react';
 import { useMachine } from '@/hooks/useMachine';
-import { useServiceIntervals } from '@/hooks/useServiceIntervals';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
-import { ServiceIntervalCard } from '@/components/dashboard/ServiceIntervalCard';
 import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
+import { ServiceIntervalsOverview } from '@/components/dashboard/ServiceIntervalsOverview';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OfflineBanner } from '@/components/layout/OfflineIndicator';
 
 export default function DashboardPage() {
   const { machine, loading: machineLoading } = useMachine();
-  const { intervals, loading: intervalsLoading } = useServiceIntervals(machine?.id);
 
   if (machineLoading) {
     return (
@@ -40,40 +39,30 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* MTH Display - Hero section */}
-      <MthDisplay machine={machine} />
+    <>
+      <OfflineBanner />
+      <div className="space-y-4 animate-fade-in">
+        {/* MTH Display - Hero section */}
+        <MthDisplay machine={machine} />
 
-      {/* Quick actions + Machine status */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <QuickActionsCard />
-        <MachineStatusCard machine={machine} />
+        {/* Quick actions + Machine status */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <QuickActionsCard />
+          <MachineStatusCard machine={machine} />
+        </div>
+
+        {/* Service intervals with color indicators */}
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">Servisní intervaly</h2>
+          <ServiceIntervalsOverview 
+            machineId={machine.id} 
+            currentMth={machine.aktualni_mth} 
+          />
+        </div>
+
+        {/* Recent activity */}
+        <RecentActivityCard machineId={machine.id} />
       </div>
-
-      {/* Service intervals */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">Servisní intervaly</h2>
-        {intervalsLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {intervals.map((interval) => (
-              <ServiceIntervalCard 
-                key={interval.id} 
-                interval={interval} 
-                currentMth={machine.aktualni_mth}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Recent activity */}
-      <RecentActivityCard machineId={machine.id} />
-    </div>
+    </>
   );
 }

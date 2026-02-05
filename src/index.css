@@ -190,17 +190,26 @@
       inset 0 2px 4px hsl(0 0% 0% / 0.3);
   }
 
-  /* Touch target for field use (gloves) */
+  /* Touch target for field use (gloves) - 56px minimum */
   .touch-target {
     @apply min-h-14 min-w-14;
   }
 
+  .touch-target-sm {
+    @apply min-h-12 min-w-12;
+  }
+
+  .touch-target-lg {
+    @apply min-h-16 min-w-16;
+  }
+
   /* Status bar */
   .status-bar {
-    @apply flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium;
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium;
     background: hsl(var(--steel-dark) / 0.8);
     border: 1px solid hsl(var(--border));
   }
+
 
   /* Critical alert pulse */
   @keyframes critical-pulse {
@@ -242,6 +251,18 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--steel-light));
+  }
+
+  /* Safe area for bottom navigation on notched devices */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* High contrast mode for outdoor use */
+  .high-contrast {
+    --foreground: 0 0% 100%;
+    --background: 0 0% 0%;
+    --muted-foreground: 0 0% 80%;
   }
 }
 
