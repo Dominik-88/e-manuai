@@ -66,6 +66,15 @@ export default function ManualPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedChapters, setExpandedChapters] = useState<string[]>(['priprava']);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // Scroll to top when selecting a new section
+  React.useEffect(() => {
+    if (selectedSection && contentRef.current) {
+      contentRef.current.scrollTo(0, 0);
+    }
+    window.scrollTo(0, 0);
+  }, [selectedSection]);
 
   const toggleChapter = (chapterId: string) => {
     setExpandedChapters(prev => 
@@ -92,20 +101,20 @@ export default function ManualPage() {
     .find(s => s.id === selectedSection);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+    <div className="flex flex-col gap-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
       {/* Search bar */}
-      <div className="relative">
+      <div className="relative shrink-0">
         <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Vyhledávání v manuálu..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-12 pl-10"
+          className="h-14 pl-10 text-base"
         />
       </div>
 
-      <div className="flex flex-1 gap-4 overflow-hidden">
+      <div className="flex flex-1 gap-4 overflow-hidden min-h-0">
         {/* Table of contents */}
         <div className="w-72 shrink-0 overflow-hidden rounded-lg border border-border bg-card">
           <div className="border-b border-border p-3">
@@ -154,7 +163,7 @@ export default function ManualPage() {
 
         {/* Content area */}
         <div className="flex-1 overflow-hidden rounded-lg border border-border bg-card">
-          <ScrollArea className="h-full">
+          <ScrollArea className="h-full" ref={contentRef}>
             <div className="p-6">
               {selectedContent ? (
                 <>
