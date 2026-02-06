@@ -11,10 +11,11 @@ const SYSTEM_PROMPT = `Jsi AI asistent specializovaný na stroj Barbieri XRot 95
 TECHNICKÉ SPECIFIKACE:
 - Model: Barbieri XRot 95 EVO
 - Šířka záběru: 95 cm
-- GNSS modul: u-blox ZED-F9P
-- Procesor: Broadcom BCM2837 (ARM Cortex-A53, 1.4 GHz)
+- GNSS modul: u-blox ZED-F9P (GPS, GLONASS, BEIDOU, Galileo)
+- Procesor: Broadcom BCM2837 (ARM Cortex-A53, 1.4 GHz), 1GB RAM
 - Compass Servo Drive: 2.0 (R54)
 - Dashboard: http://192.168.4.1:5000
+- Palivo: bezolovnatý benzín 95 oktanů (max E10)
 
 RTK NAVIGACE:
 - NTRIP Server: rtk.cuzk.cz:2101
@@ -37,9 +38,74 @@ S-MODE AUTONOMNÍ REŽIMY:
 PRAVIDLA:
 1. Odpovídej česky, stručně a přesně
 2. Používej pouze data z kontextu stroje
-3. Pokud nevíš, řekni to
-4. Odkazuj na relevantní kapitoly manuálu
-5. U servisních dotazů vždy uváděj MTH intervaly`;
+3. Pokud nevíš, řekni "Nemám dostatek dat" - NIKDY nevymýšlej čísla
+4. Odkazuj na relevantní kapitoly manuálu (kapitola 1-6)
+5. U servisních dotazů vždy uváděj MTH intervaly
+6. Pokud diagnostikuješ problém, doporuč ověření
+7. Nikdy nenahrazuj dokumentaci - odkazuj na manuál`;
+
+async function buildMachineContext(supabaseClient: any, machineContext: any): Promise<string> {
+  if (!machineContext) return '';
+
+  try {
+    // Fetch recent services
+    const { data: services } = await supabaseClient
+      .from('servisni_zaznamy')
+      .select('datum_servisu, mth_pri_servisu, typ_zasahu, popis')
+      .eq('stroj_id', machineContext.id || '')
+      .eq('is_deleted', false)
+      .order('datum_servisu', { ascending: false })
+      .limit(10);
+
+    // Fetch service intervals
+    const { data: intervals } = await supabaseClient
+      .from('servisni_intervaly')
+      .select('nazev, interval_mth, prvni_servis_mth, kriticnost')
+      .order('kriticnost', { ascending: false });
+
+    // Fetch area count
+    const { count: areaCount } = await supabaseClient
+      .from('arealy')
+      .select('*', { count: 'exact', head: true });
+
+    // Build interval status
+    const intervalStatus = (intervals || []).map((interval: any) => {
+      const lastService = (services || []).find((s: any) =>
+        s.popis?.toLowerCase().includes(interval.nazev.toLowerCase())
+      );
+      const lastMth = lastService?.mth_pri_servisu || 0;
+      const isFirst = lastMth === 0;
+      const effectiveInterval = isFirst && interval.prvni_servis_mth
+        ? interval.prvni_servis_mth
+        : interval.interval_mth;
+      const nextMth = lastMth + effectiveInterval;
+      const remaining = nextMth - (machineContext.aktualni_mth || 0);
+
+      return `- ${interval.nazev}: zbývá ${remaining.toFixed(0)} mth (${interval.kriticnost})`;
+    });
+
+    return `
+
+AKTUÁLNÍ STAV STROJE:
+- Model: ${machineContext.model}
+- S/N: ${machineContext.vyrobni_cislo}
+- Aktuální MTH: ${machineContext.aktualni_mth}
+- Stav: ${machineContext.stav}
+
+SERVISNÍ INTERVALY:
+${intervalStatus.join('\n')}
+
+POSLEDNÍ SERVISY:
+${(services || []).slice(0, 5).map((s: any) => 
+  `${s.datum_servisu}: ${s.typ_zasahu} - ${s.popis} (${s.mth_pri_servisu} mth)`
+).join('\n') || 'Žádné záznamy'}
+
+AREÁLY: ${areaCount || 0} evidovaných`;
+  } catch (err) {
+    console.error('Context build error:', err);
+    return `\nAKTUÁLNÍ STAV: ${machineContext.model}, MTH: ${machineContext.aktualni_mth}`;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -47,7 +113,6 @@ serve(async (req) => {
   }
 
   try {
-    // Validate JWT authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -72,22 +137,16 @@ serve(async (req) => {
       });
     }
 
-    // User is authenticated, proceed with the request
     const { messages, machineContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    let contextPrompt = SYSTEM_PROMPT;
-    if (machineContext) {
-      contextPrompt += `\n\nAKTUÁLNÍ STAV STROJE:
-- Model: ${machineContext.model}
-- S/N: ${machineContext.vyrobni_cislo}
-- Aktuální MTH: ${machineContext.aktualni_mth}
-- Stav: ${machineContext.stav}`;
-    }
+    // Build rich context from DB
+    const enrichedContext = await buildMachineContext(supabaseClient, machineContext);
+    const contextPrompt = SYSTEM_PROMPT + enrichedContext;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

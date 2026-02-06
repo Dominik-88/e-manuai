@@ -68,6 +68,7 @@ Na co se chcete zeptat?`
         body: JSON.stringify({
           messages: [...messages, userMessage],
           machineContext: machine ? {
+            id: machine.id,
             model: machine.model,
             vyrobni_cislo: machine.vyrobni_cislo,
             aktualni_mth: machine.aktualni_mth,

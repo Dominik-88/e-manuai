@@ -5,6 +5,7 @@ import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
 import { ServiceIntervalsOverview } from '@/components/dashboard/ServiceIntervalsOverview';
+import { TelemetryLive } from '@/components/dashboard/TelemetryLive';
 import { Skeleton } from '@/components/ui/skeleton';
 import { OfflineBanner } from '@/components/layout/OfflineIndicator';
 
@@ -62,6 +63,9 @@ export default function DashboardPage() {
 
         {/* Recent activity */}
         <RecentActivityCard machineId={machine.id} />
+
+        {/* Live telemetry */}
+        <TelemetryLive />
       </div>
     </>
   );
