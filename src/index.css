@@ -119,17 +119,28 @@
   }
 
   /* Touch targets - minimum 44px for iOS, instant feedback */
-  button, a[href], [role="button"] {
+  button, a[href], [role="button"], input, select, textarea {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Re-enable text selection for inputs */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   /* Instant touch feedback for all interactive elements */
   button:active, a:active, [role="button"]:active {
     transform: scale(0.97);
     transition: transform 0.05s ease-out;
+  }
+
+  /* Prevent iOS Safari double-tap zoom on buttons */
+  button, [role="button"] {
+    touch-action: manipulation;
   }
 
   /* Hardware-accelerated animations */
