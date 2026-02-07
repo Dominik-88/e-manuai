@@ -6,6 +6,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_MESSAGES = 50;
+const MAX_MESSAGE_LENGTH = 10000;
+const VALID_ROLES = ["user", "assistant", "system"];
+
+function isValidUUID(val: unknown): boolean {
+  return typeof val === "string" && UUID_REGEX.test(val);
+}
+
+function validateRequest(body: any): { valid: true; messages: any[]; machineContext: any } | { valid: false; error: string } {
+  const { messages, machineContext } = body ?? {};
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return { valid: false, error: "messages must be a non-empty array" };
+  }
+  if (messages.length > MAX_MESSAGES) {
+    return { valid: false, error: `Too many messages (max ${MAX_MESSAGES})` };
+  }
+
+  for (const msg of messages) {
+    if (typeof msg.content !== "string" || msg.content.length > MAX_MESSAGE_LENGTH) {
+      return { valid: false, error: `Each message content must be a string ≤${MAX_MESSAGE_LENGTH} chars` };
+    }
+    if (!VALID_ROLES.includes(msg.role)) {
+      return { valid: false, error: `Invalid message role: ${msg.role}` };
+    }
+  }
+
+  if (machineContext != null) {
+    if (typeof machineContext !== "object") {
+      return { valid: false, error: "machineContext must be an object" };
+    }
+    if (machineContext.id != null && !isValidUUID(machineContext.id)) {
+      return { valid: false, error: "Invalid machine ID format" };
+    }
+  }
+
+  return { valid: true, messages, machineContext: machineContext ?? null };
+}
+
 const SYSTEM_PROMPT = `Jsi AI asistent specializovaný na stroj Barbieri XRot 95 EVO - autonomní sekačku.
 
 TECHNICKÉ SPECIFIKACE:
@@ -48,7 +88,6 @@ async function buildMachineContext(supabaseClient: any, machineContext: any): Pr
   if (!machineContext) return '';
 
   try {
-    // Fetch recent services
     const { data: services } = await supabaseClient
       .from('servisni_zaznamy')
       .select('datum_servisu, mth_pri_servisu, typ_zasahu, popis')
@@ -57,18 +96,15 @@ async function buildMachineContext(supabaseClient: any, machineContext: any): Pr
       .order('datum_servisu', { ascending: false })
       .limit(10);
 
-    // Fetch service intervals
     const { data: intervals } = await supabaseClient
       .from('servisni_intervaly')
       .select('nazev, interval_mth, prvni_servis_mth, kriticnost')
       .order('kriticnost', { ascending: false });
 
-    // Fetch area count
     const { count: areaCount } = await supabaseClient
       .from('arealy')
       .select('*', { count: 'exact', head: true });
 
-    // Build interval status
     const intervalStatus = (intervals || []).map((interval: any) => {
       const lastService = (services || []).find((s: any) =>
         s.popis?.toLowerCase().includes(interval.nazev.toLowerCase())
@@ -136,14 +172,32 @@ serve(async (req) => {
       });
     }
 
-    const { messages, machineContext } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    // Parse and validate input
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
+    const validation = validateRequest(body);
+    if (!validation.valid) {
+      return new Response(JSON.stringify({ error: validation.error }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { messages, machineContext } = validation;
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build rich context from DB
     const enrichedContext = await buildMachineContext(supabaseClient, machineContext);
     const contextPrompt = SYSTEM_PROMPT + enrichedContext;
 
@@ -184,7 +238,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("AI assistant error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
