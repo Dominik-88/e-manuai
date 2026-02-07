@@ -443,7 +443,16 @@ export type Database = {
       provozni_rezim: "manuální" | "poloautonomní" | "autonomní"
       rtk_stav: "FIX" | "FLOAT" | "NONE" | "neznámý"
       stav_stroje: "aktivní" | "v_servisu" | "vyřazeno"
-      typ_arealu: "vinice" | "sad" | "park" | "zahrada" | "vodojem" | "jiné"
+      typ_arealu:
+        | "vinice"
+        | "sad"
+        | "park"
+        | "zahrada"
+        | "vodojem"
+        | "jiné"
+        | "úpravna vody"
+        | "čerpací stanice"
+        | "vrt"
       typ_zasahu: "preventivní" | "oprava" | "porucha" | "jiné"
       typ_zmeny: "vytvoření" | "editace" | "smazání"
     }
@@ -579,7 +588,17 @@ export const Constants = {
       provozni_rezim: ["manuální", "poloautonomní", "autonomní"],
       rtk_stav: ["FIX", "FLOAT", "NONE", "neznámý"],
       stav_stroje: ["aktivní", "v_servisu", "vyřazeno"],
-      typ_arealu: ["vinice", "sad", "park", "zahrada", "vodojem", "jiné"],
+      typ_arealu: [
+        "vinice",
+        "sad",
+        "park",
+        "zahrada",
+        "vodojem",
+        "jiné",
+        "úpravna vody",
+        "čerpací stanice",
+        "vrt",
+      ],
       typ_zasahu: ["preventivní", "oprava", "porucha", "jiné"],
       typ_zmeny: ["vytvoření", "editace", "smazání"],
     },
