@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, MapPin, ExternalLink, FileSpreadsheet, X, Map, List, Ruler, Fence, Filter } from 'lucide-react';
+import { Plus, Search, MapPin, ExternalLink, FileSpreadsheet, X, Map, List, Ruler, Fence, Filter, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +13,17 @@ import { exportAreasToExcel } from '@/lib/export';
 import { toast } from 'sonner';
 import { AreasMap } from '@/components/map/AreasMap';
 import { RoutePlanner } from '@/components/route/RoutePlanner';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -26,6 +37,26 @@ export default function AreasPage() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterTyp, setFilterTyp] = useState<string>('all');
   const [filterOkres, setFilterOkres] = useState<string>('all');
+  const [areaToDelete, setAreaToDelete] = useState<{ id: string; nazev: string } | null>(null);
+
+  const { isAdmin, isTechnik } = useAuth();
+  const queryClient = useQueryClient();
+  const canDelete = isAdmin || isTechnik;
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('arealy').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['areas-full'] });
+      toast.success('Areál byl smazán');
+      setAreaToDelete(null);
+    },
+    onError: (error: any) => {
+      toast.error('Chyba při mazání areálu: ' + error.message);
+    },
+  });
 
   const { data: areas, isLoading } = useQuery({
     queryKey: ['areas-full'],
@@ -278,6 +309,17 @@ export default function AreasPage() {
                     </div>
 
                     <div className="flex flex-col gap-2">
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                          onClick={() => setAreaToDelete({ id: area.id, nazev: area.nazev })}
+                          aria-label={`Smazat areál ${area.nazev}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       {area.google_maps_link && (
                         <a
                           href={area.google_maps_link}
@@ -326,6 +368,26 @@ export default function AreasPage() {
           )}
         </>
       )}
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!areaToDelete} onOpenChange={(open) => !open && setAreaToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Smazat areál</AlertDialogTitle>
+            <AlertDialogDescription>
+              Opravdu chcete smazat areál <strong>{areaToDelete?.nazev}</strong>? Tuto akci nelze vrátit zpět.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zrušit</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => areaToDelete && deleteMutation.mutate(areaToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? 'Mažu...' : 'Smazat'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
