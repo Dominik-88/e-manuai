@@ -20,14 +20,45 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: true,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-ui': ['@radix-ui/react-tooltip', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast', '@radix-ui/react-slot'],
-          'vendor-datefns': ['date-fns'],
+        manualChunks(id) {
+          // Core React - always needed
+          if (id.includes('react-dom') || (id.includes('/react/') && !id.includes('react-router'))) {
+            return 'vendor-react-core';
+          }
+          // Router - needed for navigation
+          if (id.includes('react-router')) {
+            return 'vendor-react-router';
+          }
+          // Supabase auth only (GoTrueClient) - needed on login
+          if (id.includes('@supabase/auth-js') || id.includes('@supabase/supabase-js')) {
+            return 'vendor-supabase-auth';
+          }
+          // Supabase data (postgrest, realtime, storage) - deferred
+          if (id.includes('@supabase/postgrest-js') || id.includes('@supabase/realtime-js') || id.includes('@supabase/storage-js')) {
+            return 'vendor-supabase-data';
+          }
+          // React Query - only needed after login
+          if (id.includes('@tanstack/react-query')) {
+            return 'vendor-query';
+          }
+          // Radix UI - split toast (used on login) from rest
+          if (id.includes('@radix-ui/react-toast') || id.includes('@radix-ui/react-slot')) {
+            return 'vendor-ui-core';
+          }
+          if (id.includes('@radix-ui/')) {
+            return 'vendor-ui-extra';
+          }
+          // Date-fns - only dashboard
+          if (id.includes('date-fns')) {
+            return 'vendor-datefns';
+          }
+          // Floating UI - deferred
+          if (id.includes('@floating-ui')) {
+            return 'vendor-floating';
+          }
         },
       },
     },
