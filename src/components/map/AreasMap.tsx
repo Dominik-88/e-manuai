@@ -70,17 +70,47 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
       .map(a => [a.gps_latitude!, a.gps_longitude!] as [number, number]);
   }, [showRoute, routeAreaIds, areasWithGps]);
 
+  // Register global handlers for popup buttons
+  useEffect(() => {
+    (window as any).__mapNavigate = (lat: number, lng: number) => {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    };
+    (window as any).__mapToggleRoute = (id: string) => {
+      const area = areasWithGps.find(a => a.id === id);
+      if (area && onToggleRoute) onToggleRoute(area);
+    };
+    return () => {
+      delete (window as any).__mapNavigate;
+      delete (window as any).__mapToggleRoute;
+    };
+  }, [areasWithGps, onToggleRoute]);
+
   // Build cluster marker data for non-route markers
   const clusterMarkers = useMemo(() => {
     return areasWithGps
       .filter(area => !routeAreaIds.includes(area.id))
       .map(area => {
         const plocha = area.plocha_m2 ? `${(area.plocha_m2 / 10000).toFixed(2)} ha` : '—';
+        const oploceni = area.obvod_oploceni_m ? `${area.obvod_oploceni_m} m` : '';
+        const isInRoute = routeAreaIds.includes(area.id);
+        const routeBtnLabel = isInRoute ? 'Odebrat z trasy' : 'Přidat do trasy';
+        const routeBtnColor = isInRoute ? '#ef4444' : 'hsl(var(--primary))';
+
+        const navBtn = area.gps_latitude && area.gps_longitude
+          ? `<button onclick="window.__mapNavigate(${area.gps_latitude},${area.gps_longitude})" style="flex:1;padding:6px 8px;border:none;border-radius:6px;background:hsl(var(--primary));color:white;font-size:11px;font-weight:600;cursor:pointer;">📍 Navigovat</button>`
+          : '';
+        const routeBtn = onToggleRoute
+          ? `<button onclick="window.__mapToggleRoute('${area.id}')" style="flex:1;padding:6px 8px;border:none;border-radius:6px;background:${routeBtnColor};color:white;font-size:11px;font-weight:600;cursor:pointer;">🗺️ ${routeBtnLabel}</button>`
+          : '';
+
         const popupHtml = `<div style="font-family:sans-serif;font-size:13px;line-height:1.5;">
-          <strong>${area.nazev}</strong><br/>
-          <span style="opacity:0.7">${area.typ}${area.okres ? ' • ' + area.okres : ''}</span><br/>
+          <strong style="font-size:14px;">${area.nazev}</strong><br/>
+          <span style="opacity:0.7">Vodojem${area.okres ? ' • ' + area.okres : ''}</span><br/>
           <span style="opacity:0.7">Plocha: ${plocha}</span>
+          ${oploceni ? '<br/><span style="opacity:0.7">Oplocení: ' + oploceni + '</span>' : ''}
+          ${area.kategorie_travnate_plochy ? '<br/><span style="opacity:0.6;font-size:11px;">Kategorie: ' + area.kategorie_travnate_plochy + '</span>' : ''}
           ${area.poznamky ? '<br/><span style="opacity:0.5;font-size:11px;">' + area.poznamky.slice(0, 80) + '</span>' : ''}
+          <div style="display:flex;gap:6px;margin-top:8px;">${navBtn}${routeBtn}</div>
         </div>`;
         return {
           id: area.id,
@@ -89,7 +119,7 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
           popupContent: popupHtml,
         };
       });
-  }, [areasWithGps, routeAreaIds]);
+  }, [areasWithGps, routeAreaIds, onToggleRoute]);
 
   if (areasWithGps.length === 0) {
     return (

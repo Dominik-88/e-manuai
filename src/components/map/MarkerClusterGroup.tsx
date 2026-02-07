@@ -116,10 +116,18 @@ export function MarkerClusterGroup({ markers, onMarkerClick, maxClusterRadius = 
     };
 
     updateClusters();
-    map.on('zoomend moveend', updateClusters);
+
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    const debouncedUpdate = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateClusters, 150);
+    };
+
+    map.on('zoomend moveend', debouncedUpdate);
 
     return () => {
-      map.off('zoomend moveend', updateClusters);
+      clearTimeout(debounceTimer);
+      map.off('zoomend moveend', debouncedUpdate);
       layerGroup.remove();
     };
   }, [map, markers, maxClusterRadius, onMarkerClick]);
