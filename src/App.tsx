@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { AppLayout } from "@/components/layout/AppLayout";
+const AppLayout = lazy(() => import("@/components/layout/AppLayout").then(m => ({ default: m.AppLayout })));
 
 // Lazy-loaded route components to reduce initial JS bundle
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
