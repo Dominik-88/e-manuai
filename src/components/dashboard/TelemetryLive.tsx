@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
 import { cn } from '@/lib/utils';
-import { Wifi, WifiOff, Gauge, Navigation, Radio, Battery, Power, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, Gauge, Navigation, Radio, Battery, Power, AlertTriangle, Clock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RTK_STATUS_INFO } from '@/types/database';
 import type { RtkStav } from '@/types/database';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function TelemetryLive() {
   const { 
@@ -15,6 +18,9 @@ export function TelemetryLive() {
     disconnect,
     emergencyStop 
   } = useBarbieriiClient();
+  const { isAdmin } = useAuth();
+  const [simulating, setSimulating] = useState(false);
+  const isStale = connectionState === 'stale';
 
   useEffect(() => {
     connect();
@@ -41,12 +47,13 @@ export function TelemetryLive() {
         <div className="flex items-center gap-2">
           <div className={cn(
             'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+            isStale ? 'bg-warning/20 text-warning' :
             isConnected ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
           )}>
-            {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            {connectionState === 'connecting' ? 'Připojování...' : isConnected ? 'Připojeno' : 'Odpojeno'}
+            {isStale ? <Clock className="h-3.5 w-3.5" /> : isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+            {connectionState === 'connecting' ? 'Připojování...' : isStale ? 'Neodpovídá' : isConnected ? 'Připojeno' : 'Odpojeno'}
           </div>
-          {!isConnected && (
+          {!isConnected && connectionState !== 'stale' && (
             <Button variant="outline" size="sm" onClick={connect} className="h-8 text-xs">
               Připojit
             </Button>
@@ -54,7 +61,15 @@ export function TelemetryLive() {
         </div>
       </div>
 
-      {!isConnected && connectionState !== 'connecting' ? (
+      {/* Stale warning banner */}
+      {isStale && telemetry?.timestamp && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Stroj neodpovídá od {telemetry.timestamp.toLocaleTimeString('cs-CZ')}</span>
+        </div>
+      )}
+
+      {!isConnected && !isStale && connectionState !== 'connecting' ? (
         <div className="py-6 text-center text-sm text-muted-foreground">
           <WifiOff className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
           <p>Čekání na data ze stroje</p>
@@ -144,6 +159,34 @@ export function TelemetryLive() {
             }
             {' • Supabase Realtime'}
           </p>
+
+          {/* PLC Simulator button for admins */}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setSimulating(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke('simulate-telemetry', {
+                    method: 'POST',
+                    body: {},
+                  });
+                  if (error) throw error;
+                  toast.success('Simulovaná telemetrie odeslána');
+                } catch (err: any) {
+                  toast.error('Chyba simulace: ' + (err.message || 'neznámá'));
+                } finally {
+                  setSimulating(false);
+                }
+              }}
+              disabled={simulating}
+              className="mt-2 w-full gap-2 text-xs"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {simulating ? 'Odesílám...' : 'Simulovat telemetrii (DEV)'}
+            </Button>
+          )}
         </div>
       )}
     </div>
