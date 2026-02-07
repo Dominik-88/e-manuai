@@ -14,6 +14,7 @@ import LoginPage from "@/pages/auth/LoginPage";
 const SignupPage = lazy(() => import("@/pages/auth/SignupPage"));
 const ManualPage = lazy(() => import("@/pages/ManualPage"));
 const ServicePage = lazy(() => import("@/pages/ServicePage"));
+const ServiceDetailPage = lazy(() => import("@/pages/ServiceDetailPage"));
 const NewServicePage = lazy(() => import("@/pages/NewServicePage"));
 const AreasPage = lazy(() => import("@/pages/AreasPage"));
 const NewAreaPage = lazy(() => import("@/pages/NewAreaPage"));
@@ -61,7 +62,7 @@ const App = () => (
                 <Route path="/manual/:section" element={<ManualPage />} />
                 <Route path="/servis" element={<ServicePage />} />
                 <Route path="/servis/novy" element={<NewServicePage />} />
-                <Route path="/servis/:id" element={<ServicePage />} />
+                <Route path="/servis/:id" element={<ServiceDetailPage />} />
                 <Route path="/arealy" element={<AreasPage />} />
                 <Route path="/arealy/novy" element={<NewAreaPage />} />
                 <Route path="/arealy/:id" element={<AreasPage />} />
