@@ -1,0 +1,152 @@
+/* Industrial Design System - loaded with app layout (not on login page) */
+
+/* Large MTH display */
+.mth-display {
+  font-family: 'Roboto Mono', monospace;
+  @apply text-4xl font-bold tracking-tight;
+}
+
+/* LED indicator styles */
+.led-indicator {
+  @apply w-3 h-3 rounded-full;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.led-green {
+  @apply bg-success;
+  box-shadow: 0 0 12px hsl(var(--success));
+}
+
+.led-orange {
+  @apply bg-warning;
+  box-shadow: 0 0 12px hsl(var(--warning));
+}
+
+.led-red {
+  @apply bg-destructive;
+  box-shadow: 0 0 12px hsl(var(--destructive));
+}
+
+.led-blue {
+  @apply bg-info;
+  box-shadow: 0 0 12px hsl(var(--info));
+}
+
+/* Steel frame effect */
+.steel-frame {
+  @apply border-2 border-steel rounded-lg;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--card)) 0%,
+    hsl(220 25% 8%) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 hsl(var(--steel-light) / 0.3),
+    0 4px 12px hsl(0 0% 0% / 0.5);
+}
+
+/* Dashboard widget */
+.dashboard-widget {
+  @apply steel-frame p-4;
+  border-left: 3px solid hsl(var(--primary));
+}
+
+/* Industrial button */
+.btn-industrial {
+  @apply font-semibold uppercase tracking-wider;
+  background: linear-gradient(
+    180deg,
+    hsl(var(--steel)) 0%,
+    hsl(var(--steel-dark)) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 hsl(var(--steel-light) / 0.5),
+    0 2px 4px hsl(0 0% 0% / 0.3);
+}
+
+.btn-industrial:hover {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--steel-light)) 0%,
+    hsl(var(--steel)) 100%
+  );
+}
+
+.btn-industrial:active {
+  box-shadow: 
+    inset 0 2px 4px hsl(0 0% 0% / 0.3);
+}
+
+/* Touch target for field use (gloves) - 56px minimum */
+.touch-target {
+  @apply min-h-14 min-w-14;
+}
+
+.touch-target-sm {
+  @apply min-h-12 min-w-12;
+}
+
+.touch-target-lg {
+  @apply min-h-16 min-w-16;
+}
+
+/* Status bar */
+.status-bar {
+  @apply flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium;
+  background: hsl(var(--steel-dark) / 0.8);
+  border: 1px solid hsl(var(--border));
+}
+
+/* Critical alert pulse */
+@keyframes critical-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.critical-alert {
+  animation: critical-pulse 1s ease-in-out infinite;
+}
+
+/* Offline indicator */
+.offline-indicator {
+  @apply fixed top-0 left-0 right-0 z-50 py-2 text-center text-sm font-medium;
+  background: hsl(var(--warning));
+  color: hsl(var(--warning-foreground));
+}
+
+/* Navigation active state */
+.nav-item-active {
+  @apply text-primary;
+  border-bottom: 2px solid hsl(var(--primary));
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--steel));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--steel-light));
+}
+
+/* Safe area for bottom navigation on notched devices */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* High contrast mode for outdoor use */
+.high-contrast {
+  --foreground: 0 0% 100%;
+  --background: 0 0% 0%;
+  --muted-foreground: 0 0% 80%;
+}

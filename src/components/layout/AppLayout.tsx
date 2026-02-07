@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import '@/styles/industrial.css';
 import { AppHeader } from './AppHeader';
 import { BottomNav } from './BottomNav';
 import { FloatingActionButton } from './FloatingActionButton';
