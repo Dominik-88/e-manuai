@@ -1,59 +1,36 @@
 
 
-# Oprava index.html -- meta tagy, PWA, fonty
+# Přidání funkce mazání areálů
 
-## Souhrn
+## Problem
 
-Analyzoval jsem vsechny 4 body. Dva jsou skutecne problemy k oprave, dva jsou nerelevantni pro Lovable prostredi.
+Na stránce Areály chybí tlačítko/akce pro smazání areálu. RLS politika pro DELETE na tabulce `arealy` existuje a povoluje mazání uživatelům s rolí admin nebo technik, ale v UI žádná možnost smazání není.
 
----
+## Řešení
 
-## 1. Duplicitni Meta Tagy -- OPRAVIT
+Přidat k každému areálu v seznamu tlačítko "Smazat" s potvrzovacím dialogem.
 
-**Problem:** `og:title`, `og:description`, `twitter:title`, `twitter:description` a `twitter:image` jsou na radcich 47-51 (injektovane Lovable systemem), ale `og:type`, `og:image` a `twitter:card` jsou na radcich 26-30 se dvema prazdnymi radky a chybejicim `og:title`/`og:description`. Vysledek: nekonzistentni poradi, prazdne radky, roztrousene tagy.
+## Technické detaily
 
-**Reseni:** Seskupit vsechny OG a Twitter tagy na jedno misto, odstranit prazdne radky, zajistit ze kazdy tag existuje prave jednou.
+### 1. Upravit `src/pages/AreasPage.tsx`
 
-## 2. PWA assety -- ZADNY PROBLEM
+- Importovat `AlertDialog` komponenty, `Trash2` ikonu a `useMutation`/`useQueryClient` z TanStack Query
+- Přidat stav pro vybraný areál ke smazání (`areaToDelete`)
+- Přidat mutaci volající `supabase.from('arealy').delete().eq('id', id)`
+- Po úspěšném smazání invalidovat query `['areas-full']` a zobrazit toast
+- Ke každému areálu přidat tlačítko s ikonou koše (Trash2)
+- Přidat `AlertDialog` s potvrzením ("Opravdu chcete smazat areál XY?") a tlačítky Zrušit / Smazat
+- Tlačítko smazání zobrazit pouze uživatelům s rolí admin nebo technik
 
-Vsechny soubory **existuji**:
-- `public/manifest.json` -- existuje
-- `public/favicon.ico` -- existuje
-- `public/icons/icon-*.png` -- vsech 8 velikosti existuje
-- `public/sw.js` -- existuje
+### 2. Získání role uživatele
 
-PWA konfigurace je funkcni, zadna oprava neni potreba.
+- Využít existující `AuthContext` pro přístup k roli uživatele
+- Podmínit zobrazení tlačítka smazání rolí admin/technik
 
-## 3. Hard-coded font preloady -- OPRAVIT (nizka priorita)
+### Uživatelský flow
 
-**Problem:** Radky 40-41 preloaduji konkretni woff2 soubory s verzovanym URL (`/v20/`, `/v31/`). Pokud Google zmeni verzi, preload selze (ne fatalne -- font se nacte pres CSS fallback, ale ztrati se optimalizace).
-
-**Reseni:** Odstranit tyto 2 preload radky. Font CSS na radku 44-46 uz fonty nacita spravne pres `display=swap`. Preconnect na radcich 35-36 zustane a zajisti rychle pripojeni. Celkovy dopad na vykon je minimalni (mozna +50ms na prvnim nacetni).
-
-## 4. Single-file architektura -- NERELEVANTNI
-
-Tvrzeni ze "vse musi byt v jednom souboru" se tyka jinych prostredi (CodePen, StackBlitz HTML sandbox). Lovable pouziva Vite + React s modulovym systemem. `<script type="module" src="/src/main.tsx">` je **spravny a jediny mozny zpusob** jak Vite aplikaci spustit. Zadna zmena neni potreba.
-
----
-
-## Implementace
-
-Jediny soubor k uprave: **`index.html`**
-
-Zmeny:
-1. Odstranit prazdne radky v OG/Twitter sekci (radky 24-25, 31-33)
-2. Presunout `og:title` a `og:description` z konce `<head>` (radky 47-51) nahoru k ostatnim OG tagum (za radek 27)
-3. Presunout `twitter:title`, `twitter:description`, `twitter:image` za `twitter:card` (radek 30)
-4. Odstranit 2 font preload radky (40-41) -- volitelne, nizka priorita
-
-Vysledna struktura `<head>`:
-```
-meta charset, viewport, title, description, author
-PWA meta tagy
-Favicon
-Open Graph (type, title, description, image) -- vse pohromade
-Twitter Card (card, title, description, image) -- vse pohromade
-Preconnect
-Font CSS (bez preloadu konkretni woff2)
-```
+1. Uživatel vidí u každého areálu ikonu koše (pokud má oprávnění)
+2. Klikne na ikonu -- otevře se potvrzovací dialog s názvem areálu
+3. Potvrdí smazání -- areál se odstraní z databáze, seznam se aktualizuje
+4. Nebo klikne "Zrušit" -- dialog se zavře bez akce
 
