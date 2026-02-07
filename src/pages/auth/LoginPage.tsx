@@ -56,7 +56,8 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-primary">
             <span className="font-mono text-2xl font-bold text-primary-foreground">B</span>
           </div>
-          <CardTitle className="text-2xl">Barbieri XRot 95 EVO</CardTitle>
+          <CardTitle className="text-2xl">e-ManuAI</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">by Dominik Schmied</p>
           <CardDescription>
             Přihlaste se pro přístup k aplikaci
           </CardDescription>
