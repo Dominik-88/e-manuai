@@ -1,34 +1,66 @@
 
-# Opravy mapy, markeru, FAB tlacitka a brandingu
+# Opravy mapy, popupov, clusteringu a dashboardu
 
 ## Prehled
-Reseni 5 konkretnich problemu nahlasenych uzivatelem:
 
-1. **Mapa neni cerna** -- zmena z CartoDB Dark Matter na svetlejsi podklad (CartoDB Voyager) pro lepsi citelnost
-2. **Mapove body prilis robustni** -- zmenseni markeru z 36-40px na 24-28px, tenci ramecky, jemnejsi stiny
-3. **Mapa mala** -- zvetseni vysky mapy z 480px na 70vh (min 500px) pro fullscreen-like pocit
-4. **FAB tlacitko "+" uprostred** -- presunuti z `right-4` na `right-4 bottom-safe` a zaroven posun vice ke kraji, aby neprekrylo obsah
-5. **Nazev na Dashboardu** -- pridani titulku "e-ManuAI • by • Dominik Schmied" na Dashboard stranku
+Reseni 5 konkretnich problemu:
+
+1. **Vsechny arealy jsou vodojemy** -- ikony markeru se meni podle `typ` sloupce v DB (vodojem/upravna vody/cerpaci stanice/vrt), ale uzivatel rika, ze vse jsou vodojemy firmy JVS. Zmenim typ vsech arealu v DB na "vodojem" migracnim SQL.
+
+2. **Popupy v clusterovanych markerech nemaji rychle akce** -- aktualne clusterovane markery pouzivaji prosty HTML string bez tlacitek "Navigovat", "Pridat do trasy" atd. Popupy musi obsahovat tyto akce. Protoze React JSX nelze pouzit v Leaflet clusterech (viz omezeni produkce), vytvori se popup jako HTML s inline `onclick` handlery pro navigaci a pridani do trasy.
+
+3. **Debounce na cluster prepocet** -- pri kazdem `zoomend`/`moveend` se okamzite prepocita clustering, coz zpusobuje zakysy. Pridani debounce (150ms) do `MarkerClusterGroup.tsx`.
+
+4. **touch-action: manipulation na markery** -- eliminace 300ms delay na dotykovych zarizenich pridanim CSS pravidla pro `.custom-area-marker`, `.custom-cluster-marker` a `.custom-stop-marker`.
+
+5. **Dashboard nazev** -- overit, ze "e-ManuAI . by . Dominik Schmied" je spravne zobrazeny (uz je implementovano).
+
+---
 
 ## Technicke detaily
 
-### Soubory k uprave:
+### 1. Migrace databaze -- zmena typu vsech arealu na "vodojem"
 
-1. **`src/components/map/AreasMap.tsx`**
-   - Zmena TileLayer URL z `dark_all` na `rastertiles/voyager` (svetlejsi mapa)
-   - Zmena vysky mapy z `480px` na `70vh` s `minHeight: 500px`
+```sql
+UPDATE arealy SET typ = 'vodojem' WHERE typ != 'vodojem';
+```
 
-2. **`src/components/map/AreaMarkerIcon.tsx`**
-   - Zmenseni `size` z 36/40 na 24/28
-   - Ztenčeni border z 3px na 2px
-   - Zmenseni box-shadow a font-size
-   - Zmenseni stop markeru z 38px na 26px
+### 2. Bohatsi popupy v MarkerClusterGroup
 
-3. **`src/components/layout/FloatingActionButton.tsx`**
-   - Zmena pozice: presun dale ke kraji (`right-6`) -- nebo ponechat `right-4` ale zajistit ze neni uprostred viewportu
+Soubor: `src/components/map/AreasMap.tsx`
 
-4. **`src/pages/DashboardPage.tsx`**
-   - Pridani nadpisu "e-ManuAI • by • Dominik Schmied" jako hero sekce pred MthDisplay
+- Rozsirit `popupHtml` o tlacitka: "Navigovat" (otevre Google Maps), "Pridat do trasy" / "Odebrat z trasy"
+- Pouzit globalni funkci `window.__mapNavigate(lat, lng)` a `window.__mapToggleRoute(id)` registrovanou v AreasMap komponente
+- Pridat kategorii, oploceni, poznamky do popupu
 
-5. **`src/components/map/MarkerClusterGroup.tsx`**
-   - Zmenseni cluster ikon (36/42/48 -> 30/36/40)
+### 3. Debounce v MarkerClusterGroup
+
+Soubor: `src/components/map/MarkerClusterGroup.tsx`
+
+- Obalit `updateClusters` do debounce (150ms) pomoci `setTimeout`/`clearTimeout`
+- Prvni volani bez debounce (immediate), nasledne debounced
+
+### 4. Touch-action CSS
+
+Soubor: `src/styles/industrial.css`
+
+```css
+.custom-area-marker,
+.custom-cluster-marker,
+.custom-stop-marker {
+  touch-action: manipulation;
+}
+```
+
+### 5. Poradi implementace
+
+1. DB migrace (zmena typu arealu)
+2. CSS touch-action
+3. Debounce v MarkerClusterGroup
+4. Rozsireni popupu v AreasMap
+
+### Soubory k uprave
+- `src/components/map/AreasMap.tsx` -- rozsireni popupu
+- `src/components/map/MarkerClusterGroup.tsx` -- debounce
+- `src/styles/industrial.css` -- touch-action
+- DB migrace -- UPDATE arealy typ
