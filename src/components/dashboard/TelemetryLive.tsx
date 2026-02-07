@@ -57,9 +57,8 @@ export function TelemetryLive() {
       {!isConnected && connectionState !== 'connecting' ? (
         <div className="py-6 text-center text-sm text-muted-foreground">
           <WifiOff className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
-          <p>Robot není dostupný na síti</p>
-          <p className="mt-1 font-mono text-xs">http://192.168.4.1:5000</p>
-          <p className="mt-2 text-xs">Připojte se k Wi-Fi robota pro živá data</p>
+          <p>Čekání na data ze stroje</p>
+          <p className="mt-2 text-xs">Stroj zatím neodesílá telemetrii</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -143,7 +142,7 @@ export function TelemetryLive() {
               ? `Poslední aktualizace: ${telemetry.timestamp.toLocaleTimeString('cs-CZ')}`
               : 'Čekání na data...'
             }
-            {' • Demo režim'}
+            {' • Supabase Realtime'}
           </p>
         </div>
       )}

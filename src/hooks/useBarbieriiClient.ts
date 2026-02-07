@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getBarbieriClient, type TelemetryData, type ConnectionState } from '@/lib/barbieri-socket';
+import { getBarbieriClient, type TelemetryData, type ConnectionState } from '@/lib/barbieri-realtime';
 
 export function useBarbieriiClient() {
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
@@ -17,7 +17,7 @@ export function useBarbieriiClient() {
     };
   }, [client]);
 
-  const connect = useCallback(() => client.connect(), [client]);
+  const connect = useCallback(() => { client.connect(); }, [client]);
   const disconnect = useCallback(() => client.disconnect(), [client]);
   const emergencyStop = useCallback(() => client.emergencyStop(), [client]);
 
