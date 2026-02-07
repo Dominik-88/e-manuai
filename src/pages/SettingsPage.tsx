@@ -66,6 +66,11 @@ export default function SettingsPage() {
       toast.error('Neplatná hodnota MTH');
       return;
     }
+    // Validation: MTH must not decrease (data integrity rule)
+    if (machine && newMth < machine.aktualni_mth) {
+      toast.error(`MTH nesmí klesnout pod aktuální hodnotu (${machine.aktualni_mth.toFixed(1)} h)`);
+      return;
+    }
     setMthSaving(true);
     try {
       await updateMth(newMth);
@@ -166,10 +171,14 @@ export default function SettingsPage() {
                       id="newMth"
                       type="number"
                       step="0.1"
+                      min={machine.aktualni_mth}
                       value={mthValue}
                       onChange={e => setMthValue(e.target.value)}
                       className="h-14 font-mono text-2xl"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Hodnota nesmí být nižší než aktuální ({machine.aktualni_mth.toFixed(1)} h)
+                    </p>
                   </div>
                 </div>
                 <DialogFooter>

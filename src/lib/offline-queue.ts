@@ -1,11 +1,11 @@
-// Offline queue for service records - saves to localStorage when offline,
-// syncs to Supabase when connection restores.
+// Offline queue for service records and MTH updates
+// Saves to localStorage when offline, syncs to Supabase when connection restores.
 
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PendingRecord {
   id: string;
-  type: 'service' | 'operation';
+  type: 'service' | 'operation' | 'mth_update';
   data: Record<string, unknown>;
   createdAt: string;
   retries: number;
@@ -25,7 +25,6 @@ function getPendingItems(): PendingRecord[] {
 
 function savePendingItems(items: PendingRecord[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  // Dispatch event for UI updates
   window.dispatchEvent(new CustomEvent('pending-sync-change', { detail: items.length }));
 }
 
@@ -43,7 +42,6 @@ export async function saveServiceRecord(record: Record<string, unknown>): Promis
     }
   }
 
-  // Save offline
   const pending: PendingRecord = {
     id: crypto.randomUUID(),
     type: 'service',
@@ -55,7 +53,6 @@ export async function saveServiceRecord(record: Record<string, unknown>): Promis
   const items = getPendingItems();
   items.push(pending);
   savePendingItems(items);
-
   return { offline: true };
 }
 
@@ -84,7 +81,46 @@ export async function saveOperationRecord(record: Record<string, unknown>): Prom
   const items = getPendingItems();
   items.push(pending);
   savePendingItems(items);
+  return { offline: true };
+}
 
+/**
+ * Save MTH update to offline queue when no connection is available.
+ * Validates that newMth >= currentMth before queuing.
+ */
+export async function saveMthUpdate(machineId: string, newMth: number): Promise<{ offline: boolean }> {
+  if (navigator.onLine) {
+    try {
+      const { error } = await supabase
+        .from('stroje')
+        .update({
+          aktualni_mth: newMth,
+          datum_posledni_aktualizace_mth: new Date().toISOString(),
+        })
+        .eq('id', machineId);
+
+      if (error) throw error;
+      return { offline: false };
+    } catch (err) {
+      console.error('[OfflineQueue] Online MTH update failed, queuing:', err);
+    }
+  }
+
+  const pending: PendingRecord = {
+    id: crypto.randomUUID(),
+    type: 'mth_update',
+    data: {
+      machineId,
+      newMth,
+      timestamp: new Date().toISOString(),
+    },
+    createdAt: new Date().toISOString(),
+    retries: 0,
+  };
+
+  const items = getPendingItems();
+  items.push(pending);
+  savePendingItems(items);
   return { offline: true };
 }
 
@@ -98,10 +134,25 @@ export async function syncPendingRecords(): Promise<{ synced: number; failed: nu
 
   for (const item of items) {
     try {
-      const table = item.type === 'service' ? 'servisni_zaznamy' : 'provozni_zaznamy';
-      const { error } = await supabase.from(table).insert(item.data as any);
-
-      if (error) throw error;
+      if (item.type === 'mth_update') {
+        const { machineId, newMth, timestamp } = item.data as {
+          machineId: string;
+          newMth: number;
+          timestamp: string;
+        };
+        const { error } = await supabase
+          .from('stroje')
+          .update({
+            aktualni_mth: newMth,
+            datum_posledni_aktualizace_mth: timestamp,
+          })
+          .eq('id', machineId);
+        if (error) throw error;
+      } else {
+        const table = item.type === 'service' ? 'servisni_zaznamy' : 'provozni_zaznamy';
+        const { error } = await supabase.from(table).insert(item.data as any);
+        if (error) throw error;
+      }
       synced++;
     } catch (err) {
       console.error(`[OfflineQueue] Sync failed for ${item.id}:`, err);
@@ -129,7 +180,7 @@ if (typeof window !== 'undefined') {
       console.log(`[OfflineQueue] Back online, syncing ${count} records...`);
       const result = await syncPendingRecords();
       console.log(`[OfflineQueue] Synced: ${result.synced}, Failed: ${result.failed}`);
-      
+
       if (result.synced > 0) {
         window.dispatchEvent(new CustomEvent('sync-complete', { detail: result }));
       }
