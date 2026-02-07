@@ -21,9 +21,9 @@ export function createAreaIcon(typ: string, isInRoute = false, routeIndex?: numb
   const config = getTypeConfig(typ);
   
   const showNumber = isInRoute && routeIndex !== undefined;
-  const size = showNumber ? 40 : 36;
+  const size = showNumber ? 28 : 24;
   const borderColor = isInRoute ? '#22d3ee' : config.color;
-  const glowColor = isInRoute ? 'rgba(34,211,238,0.5)' : `${config.color}66`;
+  const glowColor = isInRoute ? 'rgba(34,211,238,0.4)' : `${config.color}44`;
   
   const html = `
     <div style="
@@ -31,12 +31,12 @@ export function createAreaIcon(typ: string, isInRoute = false, routeIndex?: numb
       height: ${size}px;
       border-radius: 50%;
       background: ${config.color};
-      border: 3px solid ${borderColor};
+      border: 2px solid ${borderColor};
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: ${showNumber ? '14px' : '18px'};
-      box-shadow: 0 0 12px ${glowColor}, 0 2px 8px rgba(0,0,0,0.4);
+      font-size: ${showNumber ? '11px' : '13px'};
+      box-shadow: 0 0 6px ${glowColor}, 0 1px 4px rgba(0,0,0,0.3);
       transition: transform 0.2s, box-shadow 0.2s;
       cursor: pointer;
       position: relative;
@@ -47,10 +47,10 @@ export function createAreaIcon(typ: string, isInRoute = false, routeIndex?: numb
       }
       ${isInRoute ? `<div style="
         position:absolute;
-        top:-4px;
-        right:-4px;
-        width:12px;
-        height:12px;
+        top:-3px;
+        right:-3px;
+        width:8px;
+        height:8px;
         background:#22d3ee;
         border-radius:50%;
         border:2px solid #0f172a;
@@ -72,7 +72,7 @@ export function createStopIcon(index: number, total: number): L.DivIcon {
   const isFirst = index === 0;
   const isLast = index === total - 1;
   const color = isFirst ? '#22c55e' : isLast ? '#ef4444' : '#3b82f6';
-  const size = 38;
+  const size = 26;
 
   const html = `
     <div style="
@@ -80,14 +80,14 @@ export function createStopIcon(index: number, total: number): L.DivIcon {
       height: ${size}px;
       border-radius: 50%;
       background: ${color};
-      border: 3px solid rgba(255,255,255,0.9);
+      border: 2px solid rgba(255,255,255,0.8);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 16px ${color}88, 0 2px 8px rgba(0,0,0,0.5);
+      box-shadow: 0 0 8px ${color}66, 0 1px 4px rgba(0,0,0,0.3);
       cursor: pointer;
     ">
-      <span style="color:white;font-weight:800;font-size:15px;font-family:'Roboto Mono',monospace;">
+      <span style="color:white;font-weight:700;font-size:11px;font-family:'Roboto Mono',monospace;">
         ${index + 1}
       </span>
     </div>

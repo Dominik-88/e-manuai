@@ -54,7 +54,7 @@ function clusterMarkers(
 }
 
 function createClusterIcon(count: number): L.DivIcon {
-  const size = count < 10 ? 36 : count < 100 ? 42 : 48;
+  const size = count < 10 ? 30 : count < 100 ? 36 : 40;
   const color = count < 5 ? 'hsl(var(--primary))' : count < 15 ? 'hsl(var(--warning))' : 'hsl(var(--destructive))';
 
   return L.divIcon({
@@ -68,9 +68,9 @@ function createClusterIcon(count: number): L.DivIcon {
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: ${size < 42 ? 13 : 15}px;
+      font-size: ${size < 36 ? 11 : 13}px;
       font-family: 'Roboto Mono', monospace;
-      box-shadow: 0 0 12px ${color}, 0 2px 8px rgba(0,0,0,0.4);
+      box-shadow: 0 0 6px ${color}, 0 1px 4px rgba(0,0,0,0.3);
       border: 2px solid rgba(255,255,255,0.3);
       cursor: pointer;
       transition: transform 0.15s;

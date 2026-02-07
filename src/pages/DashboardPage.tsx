@@ -49,6 +49,11 @@ export default function DashboardPage() {
     <>
       <OfflineBanner />
       <div className="space-y-5 animate-fade-in">
+        {/* Branding */}
+        <h1 className="text-center text-lg font-bold tracking-wide text-foreground">
+          e-ManuAI <span className="text-muted-foreground">•</span> by <span className="text-muted-foreground">•</span> Dominik Schmied
+        </h1>
+
         {/* MTH Display - Hero section */}
         <MthDisplay machine={machine} />
 

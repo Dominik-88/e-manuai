@@ -110,13 +110,13 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
         <MapContainer
           center={[centerLat, centerLng]}
           zoom={10}
-          style={{ height: '480px', width: '100%' }}
+          style={{ height: '70vh', minHeight: '500px', width: '100%' }}
           scrollWheelZoom={true}
           zoomControl={false}
         >
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
           <ResizeHandler />
           <MapControls centerLat={centerLat} centerLng={centerLng} />
