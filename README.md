@@ -1,73 +1,183 @@
-# Welcome to your Lovable project
+# e-ManuAI
 
-## Project info
+> **Inteligentní systém pro správu a údržbu robotických sekaček Barbieri XRot 95 EVO**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://e-manuai.lovable.app/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.3-61dafb)](https://reactjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-green)](https://supabase.com/)
 
-## How can I edit this code?
+## 🎯 O projektu
 
-There are several ways of editing your application.
+**e-ManuAI** je komplexní webová aplikace pro správu, monitoring a údržbu autonomních robotických sekaček Barbieri XRot 95 EVO. Aplikace kombinuje moderní technologie s průmyslovým designem pro optimální uživatelský zážitek v terénu.
 
-**Use Lovable**
+### ✨ Klíčové funkce
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- 📊 **Dashboard** - Real-time monitoring MTH (motohodin), stavu stroje a telemetrie
+- 📖 **Technický manuál** - Interaktivní dokumentace s vyhledáváním
+- 🔧 **Servisní knížka** - Evidence servisních zásahů s exportem do PDF/Excel
+- 📍 **Správa areálů** - Mapování a plánování tras s RTK navigací
+- 🤖 **AI Asistent** - Inteligentní pomocník pro technické dotazy
+- 🛰️ **Digital Twin** - Záznam a analýza sekacích session
+- 📱 **PWA** - Plně funkční offline režim
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Technologie
 
-**Use your preferred IDE**
+### Frontend
+- **React 18.3** - Moderní UI framework
+- **TypeScript 5.8** - Type-safe development
+- **Vite** - Rychlý build tool
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - Komponenty s Radix UI
+- **React Query** - Data fetching & caching
+- **React Router** - Client-side routing
+- **Leaflet** - Interaktivní mapy
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Backend & Services
+- **Supabase** - PostgreSQL databáze, Auth, Real-time
+- **Edge Functions** - Serverless AI asistent
+- **Row Level Security** - Bezpečnost na úrovni řádků
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Design System
+- **Industrial Dark Theme** - Optimalizováno pro venkovní použití
+- **Touch-optimized** - Minimálně 44px touch targets (iOS guidelines)
+- **Accessibility** - WCAG AA compliant, ARIA labels
+- **Responsive** - Mobile-first přístup
 
-Follow these steps:
+## 📦 Instalace a spuštění
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Předpoklady
+- Node.js 18+ a npm
+- Git
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Lokální vývoj
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# 1. Klonování repozitáře
+git clone https://github.com/Dominik-88/e-manuai.git
+cd e-manuai
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 2. Instalace závislostí
+npm install
+
+# 3. Konfigurace prostředí
+# Vytvořte .env soubor s následujícími proměnnými:
+# VITE_SUPABASE_URL=your_supabase_url
+# VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# 4. Spuštění dev serveru
 npm run dev
+
+# Aplikace běží na http://localhost:5173
 ```
 
-**Edit a file directly in GitHub**
+### Build pro produkci
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Production build
+npm run build
 
-**Use GitHub Codespaces**
+# Preview production build
+npm run preview
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Testování
 
-## What technologies are used for this project?
+```bash
+# Spuštění testů
+npm test
 
-This project is built with:
+# Watch mode
+npm run test:watch
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🏗️ Struktura projektu
 
-## How can I deploy this project?
+```
+e-manuai/
+├── src/
+│   ├── components/       # React komponenty
+│   │   ├── auth/        # Autentizace
+│   │   ├── dashboard/   # Dashboard widgety
+│   │   ├── digital-twin/# Digital Twin komponenty
+│   │   ├── diagnostics/ # AI diagnostika
+│   │   ├── layout/      # Layout komponenty
+│   │   ├── map/         # Mapové komponenty
+│   │   ├── route/       # Plánování tras
+│   │   ├── settings/    # Nastavení
+│   │   └── ui/          # shadcn/ui komponenty
+│   ├── contexts/        # React contexts
+│   ├── hooks/           # Custom hooks
+│   ├── integrations/    # Supabase integrace
+│   ├── lib/             # Utility funkce
+│   ├── pages/           # Stránky aplikace
+│   ├── styles/          # CSS styly
+│   ├── types/           # TypeScript typy
+│   └── App.tsx          # Hlavní komponenta
+├── supabase/            # Supabase konfigurace
+│   ├── functions/       # Edge Functions
+│   └── migrations/      # Databázové migrace
+└── public/              # Statické soubory
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 🎨 Design System
 
-## Can I connect a custom domain to my Lovable project?
+### Barvy
+- **Primary**: Steel Blue (#3d7acc) - Hlavní akční prvky
+- **Success**: Signal Green (#00e676) - Úspěšné stavy
+- **Warning**: Orange (#ff9500) - Varování
+- **Destructive**: Red (#ff5252) - Kritické stavy
+- **Info**: RTK Blue - Informační prvky
 
-Yes, you can!
+### Typografie
+- **Sans**: Inter - Hlavní text
+- **Mono**: Roboto Mono - Technická data (MTH, GPS souřadnice)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Touch Targets
+- Minimální velikost: **44x44px** (iOS Human Interface Guidelines)
+- Optimalizováno pro použití v rukavicích
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🔐 Bezpečnost
+
+- **Row Level Security (RLS)** - Všechny tabulky chráněny RLS policies
+- **JWT Authentication** - Supabase Auth
+- **Role-based Access** - Admin, Technik, Operátor
+- **Audit Log** - Kompletní historie změn
+
+## 📱 PWA Features
+
+- ✅ Offline režim
+- ✅ Instalovatelná aplikace
+- ✅ Push notifikace (připraveno)
+- ✅ Background sync (připraveno)
+
+## 🌐 Deployment
+
+Aplikace je nasazena na **Lovable.dev** s automatickým CI/CD:
+
+- **Production**: https://e-manuai.lovable.app/
+- **Auto-deploy**: Push do `main` větve
+
+### Vlastní doména
+Pro připojení vlastní domény:
+1. Otevřete [Lovable Project Settings](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID)
+2. Přejděte na Settings > Domains
+3. Klikněte na "Connect Domain"
+
+## 🤝 Přispívání
+
+Projekt je v aktivním vývoji. Pro návrhy a bug reporty použijte GitHub Issues.
+
+## 📄 Licence
+
+© 2026 Dominik Schmied. Všechna práva vyhrazena.
+
+## 🔗 Odkazy
+
+- **Live Demo**: https://e-manuai.lovable.app/
+- **GitHub**: https://github.com/Dominik-88/e-manuai
+- **Dokumentace**: [Wiki](https://github.com/Dominik-88/e-manuai/wiki)
+
+---
+
+**Vytvořeno s ❤️ pro Barbieri XRot 95 EVO**
