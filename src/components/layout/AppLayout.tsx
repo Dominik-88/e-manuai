@@ -15,10 +15,14 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-background" role="status" aria-live="polite">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground font-mono">Načítání...</p>
+          <div 
+            className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" 
+            aria-hidden="true"
+          />
+          <p className="text-muted-foreground font-mono text-sm">Načítání aplikace...</p>
+          <span className="sr-only">Načítání, prosím čekejte</span>
         </div>
       </div>
     );
@@ -30,7 +34,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       <AppHeader />
 
       {/* Main content area */}
-      <main className="flex-1 pb-20 pt-2">
+      <main 
+        className="flex-1 pb-20 pt-2" 
+        role="main"
+        aria-label="Hlavní obsah"
+      >
         <div className="container mx-auto px-4">
           {children || <Outlet />}
         </div>
