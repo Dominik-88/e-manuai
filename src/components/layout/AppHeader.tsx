@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Bell, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
 import { OfflineIndicator } from './OfflineIndicator';
+import { NotificationCenter } from './NotificationCenter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,13 +52,8 @@ export function AppHeader() {
           {/* Offline indicator */}
           <OfflineIndicator />
 
-          {/* Notifications - 56px touch target */}
-          <Button variant="ghost" size="icon" className="relative h-14 w-14">
-            <Bell className="h-6 w-6" />
-            <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
-              2
-            </span>
-          </Button>
+          {/* Notifications */}
+          <NotificationCenter />
 
           {/* User menu - 56px touch target */}
           <DropdownMenu>
