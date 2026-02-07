@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
@@ -32,6 +31,7 @@ Na co se chcete zeptat?`
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const { profile } = useAuth();
   const { machine } = useMachine();
 
@@ -43,9 +43,10 @@ Na co se chcete zeptat?`
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
 
-    const userMessage: Message = { role: 'user', content: input.trim() };
+    const userMessage: Message = { role: 'user', content: trimmed };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -53,7 +54,6 @@ Na co se chcete zeptat?`
     let assistantContent = '';
 
     try {
-      // Get user session for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Nepřihlášen. Prosím přihlaste se.');
@@ -78,13 +78,10 @@ Na co se chcete zeptat?`
       });
 
       if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('Příliš mnoho požadavků. Zkuste to později.');
-        }
-        if (response.status === 402) {
-          throw new Error('Vyčerpány AI kredity. Kontaktujte administrátora.');
-        }
-        throw new Error('Chyba při komunikaci s AI');
+        if (response.status === 429) throw new Error('Příliš mnoho požadavků. Zkuste to později.');
+        if (response.status === 402) throw new Error('Vyčerpány AI kredity. Kontaktujte administrátora.');
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(`Chyba AI (${response.status}): ${errorBody || 'Neznámá chyba'}`);
       }
 
       const reader = response.body?.getReader();
@@ -92,7 +89,6 @@ Na co se chcete zeptat?`
 
       if (!reader) throw new Error('No response body');
 
-      // Add empty assistant message
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       let buffer = '';
@@ -101,8 +97,7 @@ Na co se chcete zeptat?`
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        
-        // Process lines
+
         let newlineIndex: number;
         while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
           let line = buffer.slice(0, newlineIndex);
@@ -123,13 +118,13 @@ Na co se chcete zeptat?`
               setMessages(prev => {
                 const updated = [...prev];
                 if (updated[updated.length - 1].role === 'assistant') {
-                  updated[updated.length - 1].content = assistantContent;
+                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: assistantContent };
                 }
                 return updated;
               });
             }
           } catch {
-            // Incomplete JSON, continue
+            // Incomplete JSON
           }
         }
       }
@@ -144,6 +139,8 @@ Na co se chcete zeptat?`
       ]);
     } finally {
       setIsLoading(false);
+      // Refocus input after send
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -204,30 +201,38 @@ Na co se chcete zeptat?`
         </div>
       </ScrollArea>
 
-      {/* Input */}
+      {/* Input - fixed send button with larger touch target */}
       <div className="border-t border-border p-4">
-        <div className="flex gap-2">
-          <Textarea
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Napište svůj dotaz..."
             rows={2}
-            className="min-h-[3rem] resize-none"
+            className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-3 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isLoading}
+            aria-label="Váš dotaz pro AI asistenta"
           />
-          <Button
+          <button
+            type="button"
             onClick={sendMessage}
             disabled={!input.trim() || isLoading}
-            size="icon"
-            className="h-12 w-12 shrink-0"
+            className={cn(
+              'flex h-14 w-14 shrink-0 items-center justify-center rounded-lg transition-colors',
+              input.trim() && !isLoading
+                ? 'bg-primary text-primary-foreground active:scale-95'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
+            )}
+            aria-label="Odeslat zprávu"
           >
             {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <Send className="h-5 w-5" />
+              <Send className="h-6 w-6" />
             )}
-          </Button>
+          </button>
         </div>
         <p className="mt-2 text-center text-xs text-muted-foreground">
           AI asistent pro Barbieri XRot 95 EVO • Odpovědi založeny na technické dokumentaci

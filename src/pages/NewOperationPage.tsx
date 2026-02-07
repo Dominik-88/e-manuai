@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Clock } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -76,13 +76,20 @@ export default function NewOperationPage() {
       datum_cas_konec: '',
       rezim: 'manuální',
       s_mode: undefined,
-      mth_start: machine?.aktualni_mth || 0,
+      mth_start: 0,
       mth_konec: undefined,
       plocha_obdelana_m2: undefined,
       rtk_stav: 'neznámý',
       poznamky: '',
     },
   });
+
+  // Update MTH when machine loads
+  useEffect(() => {
+    if (machine) {
+      form.setValue('mth_start', machine.aktualni_mth);
+    }
+  }, [machine, form]);
 
   const selectedRezim = form.watch('rezim');
   const mthStart = form.watch('mth_start');
@@ -116,9 +123,11 @@ export default function NewOperationPage() {
           poznamky: data.poznamky || null,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message);
+      }
 
-      // Update machine MTH if needed
       if (data.mth_konec && data.mth_konec > machine.aktualni_mth) {
         await supabase
           .from('stroje')
@@ -133,7 +142,7 @@ export default function NewOperationPage() {
       navigate('/');
     } catch (error) {
       console.error('Error saving operation:', error);
-      toast.error('Chyba při ukládání záznamu');
+      toast.error(`Chyba: ${error instanceof Error ? error.message : 'Chyba při ukládání záznamu'}`);
     } finally {
       setSubmitting(false);
     }
@@ -142,13 +151,13 @@ export default function NewOperationPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-14 w-14">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-14 w-14" aria-label="Zpět">
           <ArrowLeft className="h-6 w-6" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Nový provozní záznam</h1>
           <p className="text-muted-foreground">
-            Stroj: {machine?.vyrobni_cislo} | MTH: {machine?.aktualni_mth}
+            Stroj: {machine?.vyrobni_cislo || '...'} | MTH: {machine?.aktualni_mth?.toFixed(1) || '...'}
           </p>
         </div>
       </div>
@@ -156,14 +165,13 @@ export default function NewOperationPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="dashboard-widget space-y-4">
-            {/* Area selection */}
             <FormField
               control={form.control}
               name="areal_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Areál *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="h-14 text-base">
                         <SelectValue placeholder="Vyberte areál" />
@@ -182,7 +190,6 @@ export default function NewOperationPage() {
               )}
             />
 
-            {/* Date/time */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -212,7 +219,6 @@ export default function NewOperationPage() {
               />
             </div>
 
-            {/* Operating mode */}
             <FormField
               control={form.control}
               name="rezim"
@@ -222,7 +228,7 @@ export default function NewOperationPage() {
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                       className="grid grid-cols-3 gap-2"
                     >
                       {[
@@ -232,7 +238,7 @@ export default function NewOperationPage() {
                       ].map(mode => (
                         <Label
                           key={mode.value}
-                          className="flex min-h-14 cursor-pointer items-center justify-center rounded-lg border-2 p-3 text-sm font-medium transition-colors hover:bg-muted [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10"
+                          className="flex min-h-14 cursor-pointer items-center justify-center rounded-lg border-2 border-border p-3 text-sm font-medium transition-colors hover:bg-muted [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10"
                         >
                           <RadioGroupItem value={mode.value} className="sr-only" />
                           {mode.label}
@@ -245,7 +251,6 @@ export default function NewOperationPage() {
               )}
             />
 
-            {/* S-Mode if autonomous */}
             {selectedRezim === 'autonomní' && (
               <FormField
                 control={form.control}
@@ -253,7 +258,7 @@ export default function NewOperationPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>S-Mode</FormLabel>
-                    <Select onValueChange={v => field.onChange(parseInt(v))} defaultValue={field.value?.toString()}>
+                    <Select onValueChange={v => field.onChange(parseInt(v))} value={field.value?.toString() || ''}>
                       <FormControl>
                         <SelectTrigger className="h-14 text-base">
                           <SelectValue placeholder="Vyberte S-Mode" />
@@ -273,7 +278,6 @@ export default function NewOperationPage() {
               />
             )}
 
-            {/* RTK Status */}
             <FormField
               control={form.control}
               name="rtk_stav"
@@ -283,18 +287,18 @@ export default function NewOperationPage() {
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                       className="grid grid-cols-4 gap-2"
                     >
                       {[
-                        { value: 'FIX', label: '🟢 FIX' },
-                        { value: 'FLOAT', label: '🟠 FLOAT' },
-                        { value: 'NONE', label: '🔴 NONE' },
-                        { value: 'neznámý', label: '⚪ N/A' },
+                        { value: 'FIX', label: 'FIX' },
+                        { value: 'FLOAT', label: 'FLOAT' },
+                        { value: 'NONE', label: 'NONE' },
+                        { value: 'neznámý', label: 'N/A' },
                       ].map(rtk => (
                         <Label
                           key={rtk.value}
-                          className="flex min-h-12 cursor-pointer items-center justify-center rounded-lg border-2 p-2 text-xs font-medium transition-colors hover:bg-muted [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10"
+                          className="flex min-h-12 cursor-pointer items-center justify-center rounded-lg border-2 border-border p-2 text-xs font-medium transition-colors hover:bg-muted [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10"
                         >
                           <RadioGroupItem value={rtk.value} className="sr-only" />
                           {rtk.label}
@@ -307,7 +311,6 @@ export default function NewOperationPage() {
               )}
             />
 
-            {/* MTH */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -334,7 +337,8 @@ export default function NewOperationPage() {
                     <FormLabel>MTH konec</FormLabel>
                     <FormControl>
                       <Input
-                        type="number" step="0.1" {...field}
+                        type="number" step="0.1"
+                        value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                         className="h-14 font-mono text-lg"
                       />
@@ -350,7 +354,6 @@ export default function NewOperationPage() {
               />
             </div>
 
-            {/* Area worked */}
             <FormField
               control={form.control}
               name="plocha_obdelana_m2"
@@ -359,9 +362,10 @@ export default function NewOperationPage() {
                   <FormLabel>Obdělaná plocha (m²)</FormLabel>
                   <FormControl>
                     <Input
-                      type="number" step="1" {...field}
+                      type="number" step="1"
+                      value={field.value ?? ''}
                       onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                      className="h-12 font-mono"
+                      className="h-12 font-mono text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -369,7 +373,6 @@ export default function NewOperationPage() {
               )}
             />
 
-            {/* Notes */}
             <FormField
               control={form.control}
               name="poznamky"
@@ -377,7 +380,7 @@ export default function NewOperationPage() {
                 <FormItem>
                   <FormLabel>Poznámky</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={3} className="resize-none" placeholder="Doplňující informace..." />
+                    <Textarea {...field} rows={3} className="resize-none text-base" placeholder="Doplňující informace..." />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -386,10 +389,10 @@ export default function NewOperationPage() {
           </div>
 
           <div className="flex gap-3">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="h-12 flex-1">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="h-14 flex-1 text-base">
               Zrušit
             </Button>
-            <Button type="submit" disabled={submitting} className="h-12 flex-1">
+            <Button type="submit" disabled={submitting} className="h-14 flex-1 text-base">
               {submitting ? (
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               ) : (
