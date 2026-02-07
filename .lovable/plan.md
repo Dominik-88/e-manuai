@@ -1,92 +1,59 @@
 
 
-# Optimalizace repozitare -- odstraneni nepotrebnych souboru
+# Oprava index.html -- meta tagy, PWA, fonty
 
 ## Souhrn
 
-Po dustkladne analyze celeho repozitare jsem identifikoval **21 souboru**, ktere nejsou nikde pouzity a zbytecne zabiraji misto, zpomaluji build nebo matou vyvojare.
+Analyzoval jsem vsechny 4 body. Dva jsou skutecne problemy k oprave, dva jsou nerelevantni pro Lovable prostredi.
 
 ---
 
-## Soubory k odstraneni
+## 1. Duplicitni Meta Tagy -- OPRAVIT
 
-### 1. Mrtvy zdrojovy kod
+**Problem:** `og:title`, `og:description`, `twitter:title`, `twitter:description` a `twitter:image` jsou na radcich 47-51 (injektovane Lovable systemem), ale `og:type`, `og:image` a `twitter:card` jsou na radcich 26-30 se dvema prazdnymi radky a chybejicim `og:title`/`og:description`. Vysledek: nekonzistentni poradi, prazdne radky, roztrousene tagy.
 
-| Soubor | Duvod |
-|--------|-------|
-| `src/App.css` | Vychozi Vite sablona (logo-spin, .read-the-docs). Nikde neni importovan. |
-| `src/components/NavLink.tsx` | Nikde neni importovan -- BottomNav pouziva react-router-dom NavLink primo. |
-| `src/test/example.test.ts` | Placeholder test (`expect(true).toBe(true)`), nulova hodnota. |
+**Reseni:** Seskupit vsechny OG a Twitter tagy na jedno misto, odstranit prazdne radky, zajistit ze kazdy tag existuje prave jednou.
 
-### 2. Nepouzite UI komponenty (shadcn)
+## 2. PWA assety -- ZADNY PROBLEM
 
-Nasledujicich 16 komponent neni importovano z zadneho souboru v aplikaci:
+Vsechny soubory **existuji**:
+- `public/manifest.json` -- existuje
+- `public/favicon.ico` -- existuje
+- `public/icons/icon-*.png` -- vsech 8 velikosti existuje
+- `public/sw.js` -- existuje
 
-| Soubor | Pouziti |
-|--------|---------|
-| `src/components/ui/accordion.tsx` | Nikde |
-| `src/components/ui/aspect-ratio.tsx` | Nikde |
-| `src/components/ui/avatar.tsx` | Nikde |
-| `src/components/ui/breadcrumb.tsx` | Nikde |
-| `src/components/ui/calendar.tsx` | Nikde |
-| `src/components/ui/carousel.tsx` | Nikde |
-| `src/components/ui/chart.tsx` | Nikde |
-| `src/components/ui/command.tsx` | Pouze importuje dialog.tsx, sam neni importovan nikym |
-| `src/components/ui/context-menu.tsx` | Nikde |
-| `src/components/ui/hover-card.tsx` | Nikde |
-| `src/components/ui/input-otp.tsx` | Nikde |
-| `src/components/ui/menubar.tsx` | Nikde |
-| `src/components/ui/navigation-menu.tsx` | Nikde |
-| `src/components/ui/pagination.tsx` | Nikde |
-| `src/components/ui/resizable.tsx` | Nikde |
-| `src/components/ui/slider.tsx` | Nikde |
-| `src/components/ui/table.tsx` | Nikde |
-| `src/components/ui/toggle.tsx` | Pouze pouzit z toggle-group.tsx |
-| `src/components/ui/toggle-group.tsx` | Nikde v aplikaci |
+PWA konfigurace je funkcni, zadna oprava neni potreba.
 
-Poznamka: `toggle.tsx` + `toggle-group.tsx` se referencuji navzajem, ale zadny jiny soubor je nepouziva -- oba lze smazat.
+## 3. Hard-coded font preloady -- OPRAVIT (nizka priorita)
 
-Rovnez `sidebar.tsx` neni pouzit zadnou strankou, ale importuje `sheet.tsx`, `skeleton.tsx` atd. -- sam `sidebar.tsx` neni nikde importovan, takze ho tez smazeme. Tim se uvolni i `sheet.tsx` (pouzit jen ze sidebar).
+**Problem:** Radky 40-41 preloaduji konkretni woff2 soubory s verzovanym URL (`/v20/`, `/v31/`). Pokud Google zmeni verzi, preload selze (ne fatalne -- font se nacte pres CSS fallback, ale ztrati se optimalizace).
 
-Dalsich k odstraneni:
-| `src/components/ui/sidebar.tsx` | Nikde neni importovan |
-| `src/components/ui/sheet.tsx` | Pouze z sidebar.tsx (ktery se tez smaze) |
-| `src/components/ui/drawer.tsx` | Nikde |
+**Reseni:** Odstranit tyto 2 preload radky. Font CSS na radku 44-46 uz fonty nacita spravne pres `display=swap`. Preconnect na radcich 35-36 zustane a zajisti rychle pripojeni. Celkovy dopad na vykon je minimalni (mozna +50ms na prvnim nacetni).
 
-### 3. Staticke soubory
+## 4. Single-file architektura -- NERELEVANTNI
 
-| Soubor | Duvod |
-|--------|-------|
-| `public/placeholder.svg` | Genericky placeholder. Nikde v kodu neni referencovan. |
-
-### 4. Generovane/duplicitni soubory (NELZE smazat)
-
-Nasledujici soubory vypadaji zbytecne, ale **musi zustat**:
-
-| Soubor | Duvod proc nechat |
-|--------|-------------------|
-| `bun.lockb` / `bun.lock` | Lovable moze pouzivat bun -- nesahat |
-| `package-lock.json` | npm lockfile -- nesahat |
-| `src/tailwind.config.lov.json` | Lovable interni konfigurace -- nesahat |
-| `.lovable/plan.md` | Lovable interni -- nesahat |
-| `README.md` | Standardni, muze zustat (i kdyz je genericky) |
-| `tsconfig.app.tsbuildinfo` / `tsconfig.node.tsbuildinfo` | TS build cache, regeneruji se automaticky |
+Tvrzeni ze "vse musi byt v jednom souboru" se tyka jinych prostredi (CodePen, StackBlitz HTML sandbox). Lovable pouziva Vite + React s modulovym systemem. `<script type="module" src="/src/main.tsx">` je **spravny a jediny mozny zpusob** jak Vite aplikaci spustit. Zadna zmena neni potreba.
 
 ---
 
-## Postup implementace
+## Implementace
 
-1. Smazat vsech 23 identifikovanych souboru (3 mrtvy kod + 19 nepouzitych UI komponent + 1 placeholder.svg)
-2. Overit, ze aplikace stale funguje (zadne broken importy)
+Jediny soubor k uprave: **`index.html`**
 
----
+Zmeny:
+1. Odstranit prazdne radky v OG/Twitter sekci (radky 24-25, 31-33)
+2. Presunout `og:title` a `og:description` z konce `<head>` (radky 47-51) nahoru k ostatnim OG tagum (za radek 27)
+3. Presunout `twitter:title`, `twitter:description`, `twitter:image` za `twitter:card` (radek 30)
+4. Odstranit 2 font preload radky (40-41) -- volitelne, nizka priorita
 
-## Technicke detaily
-
-Celkem bude smazano priblizne **23 souboru** o celkovem rozsahu cca 4000+ radku kodu, cimz:
-- Zmensime velikost zdrojoveho kodu
-- Zrychlime TypeScript kompilaci (mene souboru ke zpracovani)
-- Odstranime matouci nevyuzity kod z repozitare
-
-Soubory, ktere se **nesmi mazat** (auto-generovane systeme): `.env`, `supabase/config.toml`, `src/integrations/supabase/client.ts`, `src/integrations/supabase/types.ts`, `components.json`, `tailwind.config.ts`, `vite.config.ts`, `vitest.config.ts`, `tsconfig.*.json`, `postcss.config.js`, `eslint.config.js`, `index.html`.
+Vysledna struktura `<head>`:
+```
+meta charset, viewport, title, description, author
+PWA meta tagy
+Favicon
+Open Graph (type, title, description, image) -- vse pohromade
+Twitter Card (card, title, description, image) -- vse pohromade
+Preconnect
+Font CSS (bez preloadu konkretni woff2)
+```
 
