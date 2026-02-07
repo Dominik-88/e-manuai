@@ -65,9 +65,6 @@ export function AreaPopupContent({ area, isInRoute, onAddToRoute, onRemoveFromRo
           <div className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium">
             <Ruler className="h-3 w-3 text-primary" />
             <span>{area.plocha_m2.toLocaleString('cs-CZ')} m²</span>
-            {area.plocha_m2 >= 10000 && (
-              <span className="text-muted-foreground">({(area.plocha_m2 / 10000).toFixed(2)} ha)</span>
-            )}
           </div>
         )}
         {area.obvod_oploceni_m != null && (

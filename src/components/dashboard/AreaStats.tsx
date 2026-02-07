@@ -84,12 +84,12 @@ export function AreaStats({ machineId }: AreaStatsProps) {
           </div>
           <div className="mt-1 flex items-end gap-1">
             <span className="font-mono text-2xl font-bold text-info">
-              {(totalMowedM2 / 10000).toFixed(1)}
+              {totalMowedM2.toLocaleString('cs-CZ')}
             </span>
-            <span className="mb-1 text-sm text-muted-foreground">ha</span>
+            <span className="mb-1 text-sm text-muted-foreground">m²</span>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Zbývá: {(remainingM2 / 10000).toFixed(1)} ha
+            Zbývá: {remainingM2.toLocaleString('cs-CZ')} m²
           </p>
           {/* Progress bar */}
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">

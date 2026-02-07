@@ -3,7 +3,7 @@ import { useMachine } from '@/hooks/useMachine';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
 import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
-import { QuickServiceConfirm } from '@/components/dashboard/QuickServiceConfirm';
+
 import { AreaStats } from '@/components/dashboard/AreaStats';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
 import { ServiceIntervalsOverview } from '@/components/dashboard/ServiceIntervalsOverview';
@@ -59,9 +59,6 @@ export default function DashboardPage() {
 
         {/* Quick actions - horizontal scroll */}
         <QuickActionsCard />
-
-        {/* Quick service confirmation */}
-        <QuickServiceConfirm />
 
         {/* Machine status */}
         <MachineStatusCard machine={machine} />

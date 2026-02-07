@@ -136,27 +136,32 @@ export default function ServicePage() {
 
         if (error) {
           console.error(`Error deleting ${id}:`, error);
+          toast.error(`Chyba při mazání záznamu: ${error.message}`);
           continue;
         }
+        successCount++;
 
-        await supabase.rpc('insert_audit_log', {
+        // Audit log — fire and forget, don't block deletion
+        supabase.rpc('insert_audit_log', {
           _tabulka: 'servisni_zaznamy',
           _zaznam_id: id,
           _typ_zmeny: 'smazání',
           _puvodni_data: service as any,
           _poznamka: bulkDeleteReason.trim(),
+        }).then(({ error: auditErr }) => {
+          if (auditErr) console.warn('Audit log failed:', auditErr);
         });
-        successCount++;
       }
 
       queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['recent-services'] });
-      toast.success(`Smazáno ${successCount} záznamů`);
+      queryClient.invalidateQueries({ queryKey: ['last-services'] });
+      if (successCount > 0) toast.success(`Smazáno ${successCount} záznamů`);
       setSelectedIds(new Set());
       setShowBulkDeleteDialog(false);
       setBulkDeleteReason('');
-    } catch (err) {
-      toast.error('Chyba při hromadném mazání');
+    } catch (err: any) {
+      toast.error('Chyba při hromadném mazání: ' + (err.message || ''));
       console.error(err);
     } finally {
       setBulkDeleting(false);

@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMachine } from '@/hooks/useMachine';
-import { Bell, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { Bell, AlertTriangle, Clock, CheckCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -14,13 +13,28 @@ import {
 
 interface Notification {
   id: string;
+  dismissKey: string;
   type: 'critical' | 'warning' | 'info';
   title: string;
   message: string;
 }
 
+function getDismissedKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem('dismissed-notifications');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissedKeys(keys: Set<string>) {
+  localStorage.setItem('dismissed-notifications', JSON.stringify([...keys]));
+}
+
 export function NotificationCenter() {
   const { machine } = useMachine();
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(getDismissedKeys);
 
   const { data: intervals } = useQuery({
     queryKey: ['service-intervals-notif'],
@@ -46,7 +60,7 @@ export function NotificationCenter() {
     },
   });
 
-  const notifications = useMemo<Notification[]>(() => {
+  const allNotifications = useMemo<Notification[]>(() => {
     if (!intervals || !machine) return [];
     const currentMth = machine.aktualni_mth;
     const notifs: Notification[] = [];
@@ -56,10 +70,13 @@ export function NotificationCenter() {
       const lastMth = lastService?.mth_pri_servisu ?? (interval.prvni_servis_mth ?? 0);
       const nextDue = lastMth + interval.interval_mth;
       const remaining = nextDue - currentMth;
+      // Dismiss key includes lastMth so it resets after a new service
+      const dismissKey = `${interval.id}_${lastMth}`;
 
       if (remaining <= 0) {
         notifs.push({
           id: interval.id,
+          dismissKey,
           type: 'critical',
           title: interval.nazev,
           message: `Po termínu o ${Math.abs(remaining).toFixed(0)} mth!`,
@@ -67,6 +84,7 @@ export function NotificationCenter() {
       } else if (remaining <= interval.interval_mth * 0.2) {
         notifs.push({
           id: interval.id,
+          dismissKey,
           type: 'warning',
           title: interval.nazev,
           message: `Zbývá ${remaining.toFixed(0)} mth do servisu`,
@@ -76,6 +94,20 @@ export function NotificationCenter() {
 
     return notifs.sort((a, b) => (a.type === 'critical' ? -1 : 1) - (b.type === 'critical' ? -1 : 1));
   }, [intervals, lastServices, machine]);
+
+  const notifications = useMemo(
+    () => allNotifications.filter(n => !dismissedKeys.has(n.dismissKey)),
+    [allNotifications, dismissedKeys]
+  );
+
+  const dismiss = useCallback((dismissKey: string) => {
+    setDismissedKeys(prev => {
+      const next = new Set(prev);
+      next.add(dismissKey);
+      saveDismissedKeys(next);
+      return next;
+    });
+  }, []);
 
   const criticalCount = notifications.filter(n => n.type === 'critical').length;
   const totalCount = notifications.length;
@@ -108,7 +140,7 @@ export function NotificationCenter() {
           ) : (
             <div className="divide-y divide-border">
               {notifications.map(notif => (
-                <div key={notif.id} className="flex items-start gap-3 px-4 py-3">
+                <div key={notif.dismissKey} className="flex items-start gap-3 px-4 py-3">
                   {notif.type === 'critical' ? (
                     <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
                   ) : (
@@ -123,6 +155,13 @@ export function NotificationCenter() {
                       {notif.message}
                     </p>
                   </div>
+                  <button
+                    onClick={() => dismiss(notif.dismissKey)}
+                    className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={`Zavřít upozornění ${notif.title}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>

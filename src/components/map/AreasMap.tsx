@@ -90,7 +90,7 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
     return areasWithGps
       .filter(area => !routeAreaIds.includes(area.id))
       .map(area => {
-        const plocha = area.plocha_m2 ? `${(area.plocha_m2 / 10000).toFixed(2)} ha` : '—';
+        const plocha = area.plocha_m2 ? `${area.plocha_m2.toLocaleString('cs-CZ')} m²` : '—';
         const oploceni = area.obvod_oploceni_m ? `${area.obvod_oploceni_m} m` : '';
         const isInRoute = routeAreaIds.includes(area.id);
         const routeBtnLabel = isInRoute ? 'Odebrat z trasy' : 'Přidat do trasy';
