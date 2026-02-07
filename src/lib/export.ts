@@ -1,6 +1,6 @@
 // Export utilities for service records, areas, and GPS data
 import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 interface ServiceRecord {
   id: string;
@@ -20,6 +20,18 @@ interface MachineInfo {
   aktualni_mth: number;
 }
 
+// Helper: trigger browser download from a Blob
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Export service records to PDF
 export async function exportServicesToPDF(
   services: ServiceRecord[],
@@ -27,26 +39,24 @@ export async function exportServicesToPDF(
 ): Promise<void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+
   // Header
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.text('Servisní kniha', pageWidth / 2, 20, { align: 'center' });
-  
+
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text(`${machine.model}`, pageWidth / 2, 30, { align: 'center' });
   doc.text(`S/N: ${machine.vyrobni_cislo} | Aktuální MTH: ${machine.aktualni_mth}`, pageWidth / 2, 38, { align: 'center' });
-  
-  // Horizontal line
+
   doc.setLineWidth(0.5);
   doc.line(14, 45, pageWidth - 14, 45);
-  
-  // Table header
+
   let yPos = 55;
   const colWidths = [25, 20, 25, 75, 30];
   const headers = ['Datum', 'MTH', 'Typ', 'Popis', 'Technik'];
-  
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   let xPos = 14;
@@ -54,21 +64,20 @@ export async function exportServicesToPDF(
     doc.text(header, xPos, yPos);
     xPos += colWidths[i];
   });
-  
+
   yPos += 3;
   doc.line(14, yPos, pageWidth - 14, yPos);
   yPos += 7;
-  
-  // Table rows
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  
+
   for (const service of services) {
     if (yPos > 270) {
       doc.addPage();
       yPos = 20;
     }
-    
+
     xPos = 14;
     const date = new Date(service.datum_servisu).toLocaleDateString('cs-CZ');
     const row = [
@@ -78,16 +87,15 @@ export async function exportServicesToPDF(
       service.popis.substring(0, 50) + (service.popis.length > 50 ? '...' : ''),
       service.provedl_osoba
     ];
-    
+
     row.forEach((cell, i) => {
       doc.text(String(cell), xPos, yPos, { maxWidth: colWidths[i] - 2 });
       xPos += colWidths[i];
     });
-    
+
     yPos += 8;
   }
-  
-  // Footer with generation date
+
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
@@ -100,58 +108,50 @@ export async function exportServicesToPDF(
       { align: 'center' }
     );
   }
-  
-  // Save file
+
   doc.save(`servisni-kniha-${machine.vyrobni_cislo}-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
-// Export service records to Excel
-export function exportServicesToExcel(
+// Export service records to Excel (exceljs)
+export async function exportServicesToExcel(
   services: ServiceRecord[],
   machine: MachineInfo
-): void {
-  // Prepare data
-  const data = services.map(s => ({
-    'Datum': new Date(s.datum_servisu).toLocaleDateString('cs-CZ'),
-    'MTH': s.mth_pri_servisu,
-    'Typ zásahu': s.typ_zasahu,
-    'Popis': s.popis,
-    'Technik': s.provedl_osoba,
-    'Firma': s.provedla_firma || '',
-    'Areál': s.arealy?.nazev || '',
-    'Náklady (Kč)': s.naklady || ''
-  }));
-  
-  // Create workbook and worksheet
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(data);
-  
-  // Set column widths
-  ws['!cols'] = [
-    { wch: 12 }, // Datum
-    { wch: 8 },  // MTH
-    { wch: 14 }, // Typ
-    { wch: 50 }, // Popis
-    { wch: 20 }, // Technik
-    { wch: 20 }, // Firma
-    { wch: 25 }, // Areál
-    { wch: 12 }, // Náklady
+): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Servisní záznamy');
+
+  // Header rows
+  ws.addRow([`Servisní kniha - ${machine.model}`]);
+  ws.addRow([`S/N: ${machine.vyrobni_cislo} | Aktuální MTH: ${machine.aktualni_mth}`]);
+  ws.addRow([`Vygenerováno: ${new Date().toLocaleString('cs-CZ')}`]);
+  ws.addRow([]);
+
+  // Column headers
+  ws.addRow(['Datum', 'MTH', 'Typ zásahu', 'Popis', 'Technik', 'Firma', 'Areál', 'Náklady (Kč)']);
+
+  // Data
+  for (const s of services) {
+    ws.addRow([
+      new Date(s.datum_servisu).toLocaleDateString('cs-CZ'),
+      s.mth_pri_servisu,
+      s.typ_zasahu,
+      s.popis,
+      s.provedl_osoba,
+      s.provedla_firma || '',
+      s.arealy?.nazev || '',
+      s.naklady || ''
+    ]);
+  }
+
+  // Column widths
+  ws.columns = [
+    { width: 12 }, { width: 8 }, { width: 14 }, { width: 50 },
+    { width: 20 }, { width: 20 }, { width: 25 }, { width: 12 },
   ];
-  
-  // Add header info
-  XLSX.utils.sheet_add_aoa(ws, [
-    [`Servisní kniha - ${machine.model}`],
-    [`S/N: ${machine.vyrobni_cislo} | Aktuální MTH: ${machine.aktualni_mth}`],
-    [`Vygenerováno: ${new Date().toLocaleString('cs-CZ')}`],
-    []
-  ], { origin: 'A1' });
-  
-  // Shift data down
-  const dataWithHeaders = XLSX.utils.sheet_to_json(ws, { header: 1 });
-  XLSX.utils.book_append_sheet(wb, ws, 'Servisní záznamy');
-  
-  // Save file
-  XLSX.writeFile(wb, `servisni-kniha-${machine.vyrobni_cislo}-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  downloadBlob(blob, `servisni-kniha-${machine.vyrobni_cislo}-${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 // Export GPS route to GPX format
@@ -178,18 +178,11 @@ ${p.time ? `        <time>${p.time}</time>` : ''}
 </gpx>`;
 
   const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${routeName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.gpx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `${routeName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.gpx`);
 }
 
-// Export areas to Excel
-export function exportAreasToExcel(
+// Export areas to Excel (exceljs)
+export async function exportAreasToExcel(
   areas: Array<{
     nazev: string;
     typ: string;
@@ -200,32 +193,31 @@ export function exportAreasToExcel(
     okres: string | null;
     kategorie_travnate_plochy: string | null;
   }>
-): void {
-  const data = areas.map(a => ({
-    'Název': a.nazev,
-    'Typ': a.typ,
-    'Plocha (m²)': a.plocha_m2 || '',
-    'Oplocení (bm)': a.obvod_oploceni_m || '',
-    'GPS Latitude': a.gps_latitude || '',
-    'GPS Longitude': a.gps_longitude || '',
-    'Okres': a.okres || '',
-    'Kategorie TZ': a.kategorie_travnate_plochy || ''
-  }));
-  
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(data);
-  
-  ws['!cols'] = [
-    { wch: 30 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 10 },
-    { wch: 12 }
+): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Areály');
+
+  ws.addRow(['Název', 'Typ', 'Plocha (m²)', 'Oplocení (bm)', 'GPS Latitude', 'GPS Longitude', 'Okres', 'Kategorie TZ']);
+
+  for (const a of areas) {
+    ws.addRow([
+      a.nazev,
+      a.typ,
+      a.plocha_m2 || '',
+      a.obvod_oploceni_m || '',
+      a.gps_latitude || '',
+      a.gps_longitude || '',
+      a.okres || '',
+      a.kategorie_travnate_plochy || ''
+    ]);
+  }
+
+  ws.columns = [
+    { width: 30 }, { width: 12 }, { width: 12 }, { width: 14 },
+    { width: 14 }, { width: 14 }, { width: 10 }, { width: 12 },
   ];
-  
-  XLSX.utils.book_append_sheet(wb, ws, 'Areály');
-  XLSX.writeFile(wb, `arealy-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  downloadBlob(blob, `arealy-${new Date().toISOString().split('T')[0]}.xlsx`);
 }

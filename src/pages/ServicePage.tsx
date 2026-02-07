@@ -74,13 +74,13 @@ export default function ServicePage() {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!machine || !filteredServices?.length) {
       toast.error('Žádné záznamy k exportu');
       return;
     }
     try {
-      exportServicesToExcel(filteredServices, machine);
+      await exportServicesToExcel(filteredServices, machine);
       toast.success('Excel byl úspěšně stažen');
     } catch (error) {
       console.error('Export error:', error);
