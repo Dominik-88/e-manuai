@@ -435,6 +435,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      insert_audit_log: {
+        Args: {
+          _nova_data?: Json
+          _poznamka?: string
+          _puvodni_data?: Json
+          _tabulka: string
+          _typ_zmeny: Database["public"]["Enums"]["typ_zmeny"]
+          _zaznam_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "technik" | "operator"
