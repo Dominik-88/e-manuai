@@ -12,6 +12,7 @@ import type { OkresCode, TypArealu } from '@/types/database';
 import { exportAreasToExcel } from '@/lib/export';
 import { toast } from 'sonner';
 import { AreasMap } from '@/components/map/AreasMap';
+import { RoutePlanner } from '@/components/route/RoutePlanner';
 import {
   Select,
   SelectContent,
@@ -208,6 +209,11 @@ export default function AreasPage() {
           <p className="text-xs text-muted-foreground">km oplocení</p>
         </div>
       </div>
+
+      {/* Route planner */}
+      {filteredAreas && filteredAreas.length > 0 && (
+        <RoutePlanner areas={filteredAreas} />
+      )}
 
       {/* Map view */}
       {viewMode === 'map' && filteredAreas && (
