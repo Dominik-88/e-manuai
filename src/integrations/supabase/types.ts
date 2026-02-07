@@ -472,6 +472,62 @@ export type Database = {
         }
         Relationships: []
       }
+      telemetrie_stroje: {
+        Row: {
+          battery_level: number | null
+          created_at: string
+          hdop: number | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          mode: string
+          mth: number
+          rtk_status: string
+          s_mode: number | null
+          speed: number
+          stroj_id: string
+          updated_at: string
+        }
+        Insert: {
+          battery_level?: number | null
+          created_at?: string
+          hdop?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          mode?: string
+          mth?: number
+          rtk_status?: string
+          s_mode?: number | null
+          speed?: number
+          stroj_id: string
+          updated_at?: string
+        }
+        Update: {
+          battery_level?: number | null
+          created_at?: string
+          hdop?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          mode?: string
+          mth?: number
+          rtk_status?: string
+          s_mode?: number | null
+          speed?: number
+          stroj_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telemetrie_stroje_stroj_id_fkey"
+            columns: ["stroj_id"]
+            isOneToOne: true
+            referencedRelation: "stroje"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
