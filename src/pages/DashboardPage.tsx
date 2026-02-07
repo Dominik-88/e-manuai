@@ -11,8 +11,9 @@ import { TelemetryLive } from '@/components/dashboard/TelemetryLive';
 import { MowingSessionRecorder } from '@/components/digital-twin/MowingSessionRecorder';
 import { SessionHistory } from '@/components/digital-twin/SessionHistory';
 import { AIDiagnostics } from '@/components/diagnostics/AIDiagnostics';
-import { Skeleton } from '@/components/ui/skeleton';
 import { OfflineBanner } from '@/components/layout/OfflineIndicator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, Activity, Cpu } from 'lucide-react';
 
 export default function DashboardPage() {
   const { machine, loading: machineLoading } = useMachine();
@@ -20,24 +21,24 @@ export default function DashboardPage() {
   if (machineLoading) {
     return (
       <div className="space-y-4 animate-fade-in">
-        <Skeleton className="h-32 w-full" />
+        <div className="shimmer h-32 w-full" />
         <div className="grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-48" />
-          <Skeleton className="h-48" />
+          <div className="shimmer h-48" />
+          <div className="shimmer h-48" />
         </div>
-        <Skeleton className="h-64" />
+        <div className="shimmer h-64" />
       </div>
     );
   }
 
   if (!machine) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50">
           <span className="text-4xl">🚜</span>
         </div>
         <h2 className="text-xl font-semibold">Žádný stroj není k dispozici</h2>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mt-2 text-sm text-muted-foreground">
           Kontaktujte administrátora pro přidání stroje.
         </p>
       </div>
@@ -47,45 +48,55 @@ export default function DashboardPage() {
   return (
     <>
       <OfflineBanner />
-      <div className="space-y-4 animate-fade-in">
+      <div className="space-y-5 animate-fade-in">
         {/* MTH Display - Hero section */}
         <MthDisplay machine={machine} />
 
-        {/* Quick actions + Machine status */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <QuickActionsCard />
-          <MachineStatusCard machine={machine} />
-        </div>
+        {/* Quick actions - horizontal scroll */}
+        <QuickActionsCard />
 
         {/* Quick service confirmation */}
         <QuickServiceConfirm />
 
+        {/* Machine status */}
+        <MachineStatusCard machine={machine} />
+
         {/* Service intervals with color indicators */}
         <div>
-          <h2 className="mb-3 text-lg font-semibold">Servisní intervaly</h2>
-          <ServiceIntervalsOverview 
-            machineId={machine.id} 
-            currentMth={machine.aktualni_mth} 
+          <h2 className="section-heading mb-3">
+            <Activity className="h-4 w-4" />
+            Servisní intervaly
+          </h2>
+          <ServiceIntervalsOverview
+            machineId={machine.id}
+            currentMth={machine.aktualni_mth}
           />
         </div>
-
-        {/* Digital Twin - Mowing session recorder */}
-        <MowingSessionRecorder machineId={machine.id} currentMth={machine.aktualni_mth} />
-
-        {/* Session history */}
-        <SessionHistory machineId={machine.id} />
 
         {/* Area stats */}
         <AreaStats machineId={machine.id} />
 
-        {/* AI Diagnostics */}
-        <AIDiagnostics />
-
         {/* Recent activity */}
         <RecentActivityCard machineId={machine.id} />
 
-        {/* Live telemetry */}
-        <TelemetryLive />
+        {/* Collapsible: Digital Twin */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/50">
+            <span className="section-heading">
+              <Cpu className="h-4 w-4" />
+              Digital Twin & Telemetrie
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 space-y-4">
+            <MowingSessionRecorder machineId={machine.id} currentMth={machine.aktualni_mth} />
+            <SessionHistory machineId={machine.id} />
+            <TelemetryLive />
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* AI Diagnostics */}
+        <AIDiagnostics />
       </div>
     </>
   );

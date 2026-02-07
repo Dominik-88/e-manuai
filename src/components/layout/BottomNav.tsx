@@ -22,8 +22,8 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur"
-      style={{ WebkitBackdropFilter: 'blur(12px)', backdropFilter: 'blur(12px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg"
+      style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       role="navigation"
       aria-label="Hlavní navigace"
     >
@@ -38,24 +38,30 @@ export function BottomNav() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'relative flex min-h-[56px] min-w-[56px] flex-col items-center justify-center gap-1 px-2 py-2 text-muted-foreground transition-colors active:scale-95',
-                  isActive && 'text-primary'
+                  'relative flex min-h-[56px] min-w-[56px] flex-col items-center justify-center gap-0.5 px-2 py-2 transition-all duration-200',
+                  isActive 
+                    ? 'text-primary' 
+                    : 'text-muted-foreground active:scale-90'
                 )}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={item.label}
               >
+                {/* Glow bg for active */}
+                {isActive && (
+                  <div className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/10 transition-all" />
+                )}
                 <item.icon className={cn(
-                  'h-6 w-6 transition-transform',
-                  isActive && 'scale-105'
-                )} />
+                  'relative z-10 h-5 w-5 transition-transform duration-200',
+                  isActive && 'scale-110'
+                )} strokeWidth={isActive ? 2.5 : 2} />
                 <span className={cn(
-                  'text-[11px] font-medium',
-                  isActive && 'font-bold'
+                  'relative z-10 text-[10px] transition-all',
+                  isActive ? 'font-bold' : 'font-medium'
                 )}>
                   {item.label}
                 </span>
                 {isActive && (
-                  <div className="absolute bottom-0 h-0.5 w-10 rounded-t-full bg-primary" />
+                  <div className="absolute bottom-0 h-0.5 w-8 rounded-t-full bg-primary" />
                 )}
               </NavLink>
             );
