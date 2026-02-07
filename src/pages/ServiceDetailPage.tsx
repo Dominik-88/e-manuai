@@ -146,8 +146,8 @@ export default function ServiceDetailPage() {
         _tabulka: 'servisni_zaznamy',
         _zaznam_id: service.id,
         _typ_zmeny: 'editace',
-        _puvodni_data: JSON.stringify(service),
-        _nova_data: JSON.stringify(editData),
+        _puvodni_data: service as any,
+        _nova_data: editData as any,
       });
 
       queryClient.invalidateQueries({ queryKey: ['service-detail', id] });
@@ -187,7 +187,7 @@ export default function ServiceDetailPage() {
         _tabulka: 'servisni_zaznamy',
         _zaznam_id: service.id,
         _typ_zmeny: 'smazání',
-        _puvodni_data: JSON.stringify(service),
+        _puvodni_data: service as any,
         _poznamka: deleteReason.trim(),
       });
 

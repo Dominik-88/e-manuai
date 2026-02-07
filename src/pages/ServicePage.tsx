@@ -1,11 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, Filter, Wrench, Calendar, User, FileDown, FileSpreadsheet, X, DollarSign } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Plus, Search, Filter, Wrench, Calendar, User, FileDown, FileSpreadsheet, X, DollarSign, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { useMachine } from '@/hooks/useMachine';
 import { formatDistanceToNow, format } from 'date-fns';
 import { cs } from 'date-fns/locale';
@@ -13,17 +16,14 @@ import { cn } from '@/lib/utils';
 import { exportServicesToPDF, exportServicesToExcel } from '@/lib/export';
 import { toast } from 'sonner';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
 const typColors: Record<string, string> = {
@@ -35,8 +35,16 @@ const typColors: Record<string, string> = {
 
 export default function ServicePage() {
   const { machine } = useMachine();
+  const { user, isAdmin, isTechnik } = useAuth();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTyp, setFilterTyp] = useState<string>('all');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkDeleteReason, setBulkDeleteReason] = useState('');
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const canDelete = isAdmin || isTechnik;
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', machine?.id],
@@ -66,7 +74,6 @@ export default function ServicePage() {
     });
   }, [services, searchQuery, filterTyp]);
 
-  // Summary statistics
   const totalCost = services?.reduce((sum, s) => sum + (s.naklady || 0), 0) || 0;
   const lastService = services?.[0];
 
@@ -87,6 +94,73 @@ export default function ServicePage() {
   const handleExportExcel = async () => {
     if (!machine || !filteredServices?.length) { toast.error('Žádné záznamy k exportu'); return; }
     try { await exportServicesToExcel(filteredServices, machine); toast.success('Excel stažen'); } catch { toast.error('Chyba při exportu'); }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredServices.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredServices.map(s => s.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!user || !bulkDeleteReason.trim() || selectedIds.size === 0) {
+      toast.error('Vyplňte důvod smazání');
+      return;
+    }
+    setBulkDeleting(true);
+    let successCount = 0;
+    try {
+      for (const id of selectedIds) {
+        const service = services?.find(s => s.id === id);
+        if (!service) continue;
+
+        const { error } = await supabase
+          .from('servisni_zaznamy')
+          .update({
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+            deleted_by: user.id,
+            deleted_reason: bulkDeleteReason.trim(),
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error(`Error deleting ${id}:`, error);
+          continue;
+        }
+
+        await supabase.rpc('insert_audit_log', {
+          _tabulka: 'servisni_zaznamy',
+          _zaznam_id: id,
+          _typ_zmeny: 'smazání',
+          _puvodni_data: service as any,
+          _poznamka: bulkDeleteReason.trim(),
+        });
+        successCount++;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-services'] });
+      toast.success(`Smazáno ${successCount} záznamů`);
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
+      setBulkDeleteReason('');
+    } catch (err) {
+      toast.error('Chyba při hromadném mazání');
+      console.error(err);
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   return (
@@ -127,6 +201,34 @@ export default function ServicePage() {
           </Button>
         </div>
       </div>
+
+      {/* Bulk delete toolbar */}
+      {canDelete && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3">
+          <span className="text-sm font-medium">
+            Vybráno: <span className="font-mono font-bold">{selectedIds.size}</span>
+          </span>
+          <div className="flex-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectedIds(new Set())}
+            className="h-9 gap-1.5 text-xs"
+          >
+            <X className="h-3.5 w-3.5" />
+            Zrušit výběr
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowBulkDeleteDialog(true)}
+            className="h-9 gap-1.5 text-xs"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Smazat vybrané
+          </Button>
+        </div>
+      )}
 
       {/* Summary stats */}
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -181,6 +283,18 @@ export default function ServicePage() {
         </Select>
       </div>
 
+      {/* Select all */}
+      {canDelete && filteredServices.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <Checkbox
+            checked={selectedIds.size === filteredServices.length && filteredServices.length > 0}
+            onCheckedChange={toggleSelectAll}
+            aria-label="Vybrat vše"
+          />
+          <span className="text-xs text-muted-foreground">Vybrat vše</span>
+        </div>
+      )}
+
       {/* Service list */}
       {isLoading ? (
         <div className="space-y-3">
@@ -189,15 +303,25 @@ export default function ServicePage() {
       ) : filteredServices && filteredServices.length > 0 ? (
         <div className="space-y-2">
           {filteredServices.map(service => (
-            <Link
-              key={service.id}
-              to={`/servis/${service.id}`}
-              className="group relative block overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
-            >
+            <div key={service.id} className="group relative flex overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+              {/* Checkbox */}
+              {canDelete && (
+                <div className="flex items-center px-3" onClick={e => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(service.id)}
+                    onCheckedChange={() => toggleSelect(service.id)}
+                    aria-label={`Vybrat záznam ${service.popis.slice(0, 30)}`}
+                  />
+                </div>
+              )}
+
               {/* Color accent strip */}
               <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: typColors[service.typ_zasahu] || '#6b7280' }} />
 
-              <div className="flex items-start gap-3 p-3.5 pl-4">
+              <Link
+                to={`/servis/${service.id}`}
+                className="flex flex-1 items-start gap-3 p-3.5 pl-4"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <Badge className={cn('border text-[10px] capitalize', getTypBadgeColor(service.typ_zasahu))}>
@@ -233,8 +357,8 @@ export default function ServicePage() {
                     <p className="mt-1 font-mono text-sm font-medium">{service.naklady.toLocaleString()} Kč</p>
                   )}
                 </div>
-              </div>
-            </Link>
+              </Link>
+            </div>
           ))}
         </div>
       ) : (
@@ -252,6 +376,37 @@ export default function ServicePage() {
           </Button>
         </div>
       )}
+
+      {/* Bulk delete dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Smazat {selectedIds.size} záznamů?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tato akce provede soft-delete vybraných servisních záznamů. Zadejte důvod smazání.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            placeholder="Důvod smazání (povinné)..."
+            value={bulkDeleteReason}
+            onChange={e => setBulkDeleteReason(e.target.value)}
+            rows={3}
+            className="resize-none"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Zrušit</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={!bulkDeleteReason.trim() || bulkDeleting}
+              className="gap-2"
+            >
+              {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Smazat {selectedIds.size} záznamů
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
