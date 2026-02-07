@@ -1,218 +1,92 @@
 
 
-# 📱 PWA Aplikace Barbieri XRot 95 EVO
-## Kompletní plán implementace
+# Optimalizace repozitare -- odstraneni nepotrebnych souboru
+
+## Souhrn
+
+Po dustkladne analyze celeho repozitare jsem identifikoval **21 souboru**, ktere nejsou nikde pouzity a zbytecne zabiraji misto, zpomaluji build nebo matou vyvojare.
 
 ---
 
-## 🎯 Přehled projektu
+## Soubory k odstraneni
 
-Plnohodnotná Progressive Web App pro autonomní sekačku Barbieri XRot 95 EVO sloužící jako:
-- Interaktivní technický manuál
-- Digitální servisní knížka s audit trail
-- Provozní deník
-- Telemetrický nástroj
-- AI asistent specializovaný na stroj
+### 1. Mrtvy zdrojovy kod
 
----
+| Soubor | Duvod |
+|--------|-------|
+| `src/App.css` | Vychozi Vite sablona (logo-spin, .read-the-docs). Nikde neni importovan. |
+| `src/components/NavLink.tsx` | Nikde neni importovan -- BottomNav pouziva react-router-dom NavLink primo. |
+| `src/test/example.test.ts` | Placeholder test (`expect(true).toBe(true)`), nulova hodnota. |
 
-## 🏗️ Fáze 1: Základy a infrastruktura
+### 2. Nepouzite UI komponenty (shadcn)
 
-### Backend (Lovable Cloud + Supabase)
-- **Autentizace**: Přihlášení emailem s možností rozšíření o Google OAuth
-- **Databáze**: 7 hlavních tabulek
-  - `profiles` - uživatelské profily
-  - `user_roles` - role (admin, technik, operátor)
-  - `stroje` - evidence strojů
-  - `arealy` - 42 reálných vodárenských lokalit s GPS
-  - `servisni_zaznamy` - digitální servisní knížka
-  - `provozni_zaznamy` - provozní deník
-  - `audit_log` - kompletní historie změn
-- **RLS politiky**: Přístupy dle rolí uživatelů
-- **Edge Functions**: AI asistent přes Lovable AI Gateway
+Nasledujicich 16 komponent neni importovano z zadneho souboru v aplikaci:
 
-### PWA konfigurace
-- Service Worker pro offline funkcionalitu
-- Manifest pro instalaci na zařízení
-- IndexedDB pro lokální cache a offline zápis
-- Automatická synchronizace při obnovení připojení
+| Soubor | Pouziti |
+|--------|---------|
+| `src/components/ui/accordion.tsx` | Nikde |
+| `src/components/ui/aspect-ratio.tsx` | Nikde |
+| `src/components/ui/avatar.tsx` | Nikde |
+| `src/components/ui/breadcrumb.tsx` | Nikde |
+| `src/components/ui/calendar.tsx` | Nikde |
+| `src/components/ui/carousel.tsx` | Nikde |
+| `src/components/ui/chart.tsx` | Nikde |
+| `src/components/ui/command.tsx` | Pouze importuje dialog.tsx, sam neni importovan nikym |
+| `src/components/ui/context-menu.tsx` | Nikde |
+| `src/components/ui/hover-card.tsx` | Nikde |
+| `src/components/ui/input-otp.tsx` | Nikde |
+| `src/components/ui/menubar.tsx` | Nikde |
+| `src/components/ui/navigation-menu.tsx` | Nikde |
+| `src/components/ui/pagination.tsx` | Nikde |
+| `src/components/ui/resizable.tsx` | Nikde |
+| `src/components/ui/slider.tsx` | Nikde |
+| `src/components/ui/table.tsx` | Nikde |
+| `src/components/ui/toggle.tsx` | Pouze pouzit z toggle-group.tsx |
+| `src/components/ui/toggle-group.tsx` | Nikde v aplikaci |
 
----
+Poznamka: `toggle.tsx` + `toggle-group.tsx` se referencuji navzajem, ale zadny jiny soubor je nepouziva -- oba lze smazat.
 
-## 🎨 Fáze 2: Design systém
+Rovnez `sidebar.tsx` neni pouzit zadnou strankou, ale importuje `sheet.tsx`, `skeleton.tsx` atd. -- sam `sidebar.tsx` neni nikde importovan, takze ho tez smazeme. Tim se uvolni i `sheet.tsx` (pouzit jen ze sidebar).
 
-### Industriální/technický vzhled
-- **Barevná paleta**:
-  - Primární: Tmavě šedá (#1a1a2e), ocelová modrá (#16213e)
-  - Akcenty: Signální zelená (#00d26a), varovná oranžová (#ff8c00), kritická červená (#ff3d3d)
-  - Pozadí: Tmavá (#0f0f23), karty (#1a1a2e)
-- **Typografie**: Roboto Mono pro technická data, Inter pro texty
-- **Komponenty**: Ocelové rámečky, LED indikátory, dashboard widgety
+Dalsich k odstraneni:
+| `src/components/ui/sidebar.tsx` | Nikde neni importovan |
+| `src/components/ui/sheet.tsx` | Pouze z sidebar.tsx (ktery se tez smaze) |
+| `src/components/ui/drawer.tsx` | Nikde |
 
-### Terénní optimalizace
-- Velikost dotyků min. 56px (pro rukavice)
-- Vysoký kontrast pro slunce (7:1 WCAG AAA)
-- Velké fonty pro MTH displeje (40px)
-- Sticky navigace vždy viditelná
+### 3. Staticke soubory
 
----
+| Soubor | Duvod |
+|--------|-------|
+| `public/placeholder.svg` | Genericky placeholder. Nikde v kodu neni referencovan. |
 
-## 📖 Fáze 3: Digitální manuál
+### 4. Generovane/duplicitni soubory (NELZE smazat)
 
-### Obsah (z autentických zdrojů)
-- 7 hlavních kapitol dle specifikace
-- Příprava stroje, ovládání, technické specifikace
-- Údržba a servis, autonomní navigace (RTK)
-- Bezpečnostní systémy
+Nasledujici soubory vypadaji zbytecne, ale **musi zustat**:
 
-### Funkce
-- Stromová navigace s rozbalovacími sekcemi
-- Fulltextové vyhledávání (výsledky do 300ms)
-- Breadcrumb navigace
-- Offline přístup ke všem kapitolám
-- Zvýrazňování hledaných výrazů
+| Soubor | Duvod proc nechat |
+|--------|-------------------|
+| `bun.lockb` / `bun.lock` | Lovable moze pouzivat bun -- nesahat |
+| `package-lock.json` | npm lockfile -- nesahat |
+| `src/tailwind.config.lov.json` | Lovable interni konfigurace -- nesahat |
+| `.lovable/plan.md` | Lovable interni -- nesahat |
+| `README.md` | Standardni, muze zustat (i kdyz je genericky) |
+| `tsconfig.app.tsbuildinfo` / `tsconfig.node.tsbuildinfo` | TS build cache, regeneruji se automaticky |
 
 ---
 
-## 🔧 Fáze 4: Servisní knížka
+## Postup implementace
 
-### Evidence servisů
-- Formulář pro nový záznam s validací
-- Povinná pole: datum, MTH, typ zásahu, popis (min 10 znaků), technik
-- Volitelná pole: firma, areál, náklady
-- Validace: datum ne v budoucnu, MTH ≥ poslední servis
-
-### Historie a audit
-- Seznam servisů s filtry (typ, datum, technik, areál)
-- Detail záznamu s možností editace
-- Historie změn (kdo, kdy, co změnil, důvod)
-- Export do PDF a Excel
-- Soft delete se záznamem důvodu
+1. Smazat vsech 23 identifikovanych souboru (3 mrtvy kod + 19 nepouzitych UI komponent + 1 placeholder.svg)
+2. Overit, ze aplikace stale funguje (zadne broken importy)
 
 ---
 
-## ⏱️ Fáze 5: Servisní intervaly
+## Technicke detaily
 
-### Definované intervaly (autentická data)
-- **Výměna oleje**: 50 mth (první), pak 100 mth - KRITICKÉ
-- **Kontrola nožů**: 50 mth - DŮLEŽITÉ
-- **Velký servis**: 500 mth - KRITICKÉ
+Celkem bude smazano priblizne **23 souboru** o celkovem rozsahu cca 4000+ radku kodu, cimz:
+- Zmensime velikost zdrojoveho kodu
+- Zrychlime TypeScript kompilaci (mene souboru ke zpracovani)
+- Odstranime matouci nevyuzity kod z repozitare
 
-### Funkce
-- Dashboard s přehledem všech intervalů
-- Automatický výpočet zbývajících MTH
-- Barevná indikace stavu (zelená/oranžová/červená)
-- Notifikace při blížícím se termínu (<20 mth)
-- Možnost manuální korekce s audit logem
-
----
-
-## 📍 Fáze 6: Evidence areálů
-
-### Reálná data (42 vodárenských objektů)
-- Předvyplněno 42 lokalit z JVS seznamu
-- GPS souřadnice, rozměry ploch, délka oplocení
-- Okresy: Písek, Strakonice, České Budějovice, Prachatice, Český Krumlov, Tábor
-
-### Funkce
-- Seznam areálů s vyhledáváním a filtry
-- Detail s mapou (OpenStreetMap/Google Maps)
-- Přidání nového areálu s GPS výběrem na mapě
-- Vazba areál ↔ stroj ↔ servis
-- Statistiky odpracovaných MTH na areál
-- Export GPX pro navigaci
-
----
-
-## 📊 Fáze 7: Telemetrie
-
-### Manuální zadávání (bez API výrobce)
-- Formulář pro záznam provozních dat
-- Pole: MTH, režim, S-Mode, areál, RTK stav, poznámky
-- Připravená struktura pro budoucí API integraci
-
-### Dashboard
-- Přehled aktuálního stavu stroje
-- Graf odpracovaných MTH za období
-- Historie prací podle areálů
-- Upozornění na změny RTK stavu
-- Vizuální indikace "API není k dispozici"
-
----
-
-## 🤖 Fáze 8: AI asistent
-
-### Integrace přes Lovable AI
-- Edge function volající Lovable AI Gateway
-- Model: google/gemini-3-flash-preview
-- Streaming odpovědí pro plynulý UX
-
-### Knowledge base
-- Kompletní technická dokumentace stroje
-- Aktuální stav stroje a MTH
-- Historie servisů a problémů
-- Seznam areálů s GPS
-- RTK specifikace (u-blox ZED-F9P, CZEPOS)
-
-### Chování AI
-- Kontextuální odpovědi s daty ze stroje
-- Odkazy na relevantní kapitoly manuálu
-- Servisní doporučení na základě MTH
-- Diagnostické návrhy s kroky řešení
-- Markdown rendering odpovědí
-
----
-
-## 📱 Fáze 9: UX pro terén
-
-### Navigace
-- Spodní navigační lišta (5 ikon)
-- Sticky header s MTH a upozorněními
-- Floating action button pro rychlý zápis
-- Max 3 kliky k jakékoliv funkci
-
-### Offline indikátory
-- Status připojení v headeru
-- Počet čekajících synchronizací
-- Využití offline cache
-- Automatická sync při obnovení
-
-### Notifikace
-- Push notifikace pro blížící se servisy
-- In-app upozornění na kritické stavy
-- Toast notifikace pro potvrzení akcí
-
----
-
-## 🔐 Bezpečnost a data
-
-### Autentizace a role
-- Email přihlášení s možností OAuth
-- Role: Admin, Technik, Operátor
-- RLS politiky dle rolí
-
-### Audit trail
-- Logování všech změn
-- Kdo, kdy, co změnil, původní hodnota
-- Důvod změny (povinný při editaci/smazání)
-
-### Offline-first
-- IndexedDB pro lokální data
-- Service Worker cache pro statické soubory
-- Konflikt resolution při synchronizaci
-
----
-
-## 📋 Výstup implementace
-
-Po dokončení bude aplikace obsahovat:
-- ✅ Plně funkční PWA instalovatelnou na všechna zařízení
-- ✅ 42 předvyplněných areálů s GPS
-- ✅ Kompletní digitální manuál stroje
-- ✅ Digitální servisní knížku s historií
-- ✅ Sledování servisních intervalů
-- ✅ Provozní deník s telemetrií
-- ✅ AI asistent specializovaný na Barbieri XRot 95 EVO
-- ✅ Offline funkcionalitu pro práci v terénu
-- ✅ Industriální design optimalizovaný pro terén
+Soubory, ktere se **nesmi mazat** (auto-generovane systeme): `.env`, `supabase/config.toml`, `src/integrations/supabase/client.ts`, `src/integrations/supabase/types.ts`, `components.json`, `tailwind.config.ts`, `vite.config.ts`, `vitest.config.ts`, `tsconfig.*.json`, `postcss.config.js`, `eslint.config.js`, `index.html`.
 
