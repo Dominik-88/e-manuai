@@ -1,145 +1,121 @@
 
 
-# Komplexni upgrade mapy, trasoveho planovace a celkoveho UX/UI
+# Oprava chyb a vylepseni -- mapa, mazani servisu, Manual, AI Asistent, iOS Safari
 
 ## Prehled
 
-Kompletni redesign mapove komponenty, trasoveho planovace a vylepseni UX/UI vsech stranek aplikace. Hlavni zmeny: kresleni skutecnych tras na mape (ne vzdusnou carou), vizualne atraktivnejsi mapove body, moznost zrusit celou trasu jednim klikem, a globalni vylepseni rozlozeni, prehlednosti a ovladani vsech stranek.
+Plan pokryva 5 oblasti: (1) overeni a opravy mapy/planovace tras, (2) marker clustering, (3) redesign stranek Manual a AI Asistent, (4) oprava mazani servisnich zaznamu, (5) kompatibilita s iOS Safari.
 
 ---
 
-## 1. Premium mapa s vlastnimi ikonami a stylem
+## 1. Oprava mazani servisnich zaznamu
 
-**Co se zmeni:**
-- Nahrazeni standardnich Leaflet markeru vlastnimi barevnymi SVG ikonami podle typu arealu (vodojem = modra kapka, vrt = hneda sipka dolu, park = zeleny strom atd.)
-- Tmavsi mapovy podklad (CartoDB Dark Matter) ladici s industrialnim designem aplikace
-- Pop-up okna s lepsim designem: zaoblene rohy, gradient pozadi, vetsi dotykove cile pro akce
-- Pridani tlacitka "Centrovit mapu" a "Moje poloha" (GPS)
-- Animovany prechod pri otevirani pop-upu
-- Zobrazeni shlukovani markeru (marker clustering) kdyz jsou body blizko sebe
+**Problem:**
+Kod v `ServiceDetailPage.tsx` pouziva `JSON.stringify(service)` pro parametry `_puvodni_data` a `_nova_data` pri volani RPC `insert_audit_log`. To vytvari textovy retezec misto JSON objektu, coz zpusobi chybu pri volani databaze. Take je mozne, ze uzivatel nema roli admin/technik a tudiz nemuze provest UPDATE (soft-delete).
 
-**Informace v pop-upu:**
-- Nazev arealu + typ ikona
-- Okres, plocha (m2/ha), obvod oploceni
-- Kategorie travnate plochy
-- Prirazeny stroj (pokud existuje)
-- Poznamky (zkracene)
-- Rychle akce: Navigovat, Pridat do trasy, Otevrit Google Maps, Zaznam provozu
+**Reseni:**
+- Opravit volani `supabase.rpc('insert_audit_log', ...)` -- predat objekt primo, ne `JSON.stringify(...)`:
+  ```typescript
+  // PRED (chybne):
+  _puvodni_data: JSON.stringify(service),
+  // PO (spravne):
+  _puvodni_data: service,
+  ```
+- Opravit obe mista: v `handleSave` (line 149-150) i v `handleDelete` (line 188)
+- Pridat hromadne mazani na stranku `ServicePage.tsx`:
+  - Checkbox u kazdeho zaznamu
+  - Toolbar s poctem vybranych a tlacitkem "Smazat vybrane"
+  - Dialog pro zadani duvodu smazani (spolecny pro vsechny)
+  - Iterace pres vybrane zaznamy s volanim soft-delete a audit logu
 
-## 2. Trasovy planovac s realnou trasou na mape
+**Soubory:**
+- `src/pages/ServiceDetailPage.tsx` -- oprava JSON.stringify
+- `src/pages/ServicePage.tsx` -- pridani hromadneho mazani
 
-**Uplne novy trasovy planovac:**
-- Mapa s vykreslenou trasou pomoci OSRM (Open Source Routing Machine) - skutecna silnicni trasa, ne vzdusna cara
-- Pouziti bezplatneho OSRM demo serveru (`router.project-osrm.org/route/v1/driving/...`) pro ziskani geometrie trasy
-- Ciselne oznaceni zastávek primo na mape (1, 2, 3...)
-- Spojnice mezi body se barevne odlisuji podle poradi
+---
 
-**Ovladani:**
-- Tlacitko "Pridat vse s GPS" pro hromadne pridani
-- Tlacitko "Zrusit celou trasu" (cervene, s potvrzenim) -- smaze vsechny zastávky najednou
-- Drag-and-drop razeni zastavek v seznamu
-- Optimalizace poradi (stavajici nearest-neighbor TSP)
-- Statisticky panel: pocet zastavek, celkova plocha, celkova vzdalenost po silnici, odhadovany cas jizdy
-- Tlacitko "Navigovat v Google Maps" generuje URL se vsemi waypointy
+## 2. Marker clustering na mape
 
-**Integrace s mapou:**
-- Kdyz je trasovy planovac aktivni, mapa se automaticky prepne do rezimu trasy
-- Kliknuti na marker v mape prida/odebere areal z trasy
-- Trasa se prekresluje v realnem case pri zmene poradi
+**Reseni:**
+- Implementace vlastniho clusteringu bez externi knihovny (react-leaflet-markercluster ma problemy s React 18)
+- Vytvoreni komponenty `MarkerClusterGroup.tsx` ktera pouziva Leaflet `L.markerClusterGroup` primo
+- Alternativne: jednodussi pristup s `leaflet.markercluster` CSS + JS importem a custom wrapper komponentou
+- Seskupovani blizkych bodu pri oddaleni, rozbalovani pri priblizeni
+- Cluster ikona zobrazuje pocet bodu v kruhu
 
-## 3. Stranka Arealy -- redesign
+**Soubory:**
+- `src/components/map/MarkerClusterGroup.tsx` -- novy soubor
+- `src/components/map/AreasMap.tsx` -- integrace clusteringu
+- `src/styles/industrial.css` -- styly pro cluster ikony
 
-**Zmeny v rozlozeni:**
-- Prepinac seznam/mapa presunout nahoru vedle nadpisu (ne uprostred stranky)
-- Souhrnne statistiky zobrazit jako kompaktni lištu pod nadpisem
-- Filtry a vyhledavani sloučit do jednoho radku s kolapsibilnim filtrem
-- Karty arealu: pridat barevny proužek vlevo podle typu, lepsi hierarchie informaci
-- "Prazdny stav" s ilustraci misto velke ikony
+---
 
-**Rezim mapy:**
-- Mapa zabere celou sirku a vysku (fullscreen-like) s floating ovladacimi prvky
-- Trasovy planovac jako posuvny panel zdola (bottom sheet)
-
-## 4. Dashboard -- vylepseni rozlozeni
+## 3. Vylepseni stranky Manual
 
 **Zmeny:**
-- MTH displej: pridat kruhovy progress ukazatel do dalsiho servisu
-- Quick Actions: zmensit na 1 radek se scrollem (horizontalni scroll na mobilu)
-- Servisni intervaly: pridat barevne kodovani naléhavosti (zelena/oranzova/cervena)
-- Provozni statistiky a posledni zaznamy: sjednotit vizualni styl
-- Telemetrie a Digital Twin: presunout do sklopitelnych sekci at nezahrnuji dashboard
+- Profesionalnejsi hlavicka s ikonou a popisem
+- Vizualne odlisene sekce -- ikony u kapitol, barevne rozliseni typu obsahu
+- Formtovany obsah -- nahradit `<pre>` za strukturovany HTML s odrázkami, zvyraznenim a rozbalitelnymi bloky
+- Lepsi mobilni navigace -- bottom sheet misto skryteho panelu
+- Vyhledavani s zvyraznenym vysledkem (highlight matching text)
+- Breadcrumb navigace (Obsah > Kapitola > Sekce)
 
-## 5. Servisni knizka -- vylepseni
+**Soubory:**
+- `src/pages/ManualPage.tsx` -- kompletni redesign
 
-**Zmeny:**
-- Tlacitko Filter: implementovat skutecny filtr (typ zasahu, datumovy rozsah) -- aktualne nefunkcni
-- Karty zaznamu: pridat barevny indikator vlevo podle typu zasahu
-- Pridani souhrnne statistiky nahore (celkem zaznamu, celkove naklady, posledni servis)
-- Lepsi prazdny stav
+---
 
-## 6. Formulare (Novy servis, Novy areal, Novy provoz)
+## 4. Vylepseni stranky AI Asistent
 
 **Zmeny:**
-- Seskupeni poli do logickych sekci s nadpisy (Zakladni udaje, GPS & lokace, Doplnujici info)
-- Pridani vizualnich oddelovacu mezi sekcemi
-- GPS pole: tlacitko "Pouzit moji polohu" pro automaticke vyplneni
-- Lepsi validacni zpravy s ikonami
-- Sticky submit tlacitko na mobilu (fixovane dole)
+- Hlavicka s informaci o kontextu (pripojeny stroj, aktualni MTH)
+- Nabidka predpripravenych dotazu (quick prompts) -- "Kdy je dalsi servis?", "Jak nastavit RTK?", atd.
+- Markdown rendering odpovedi (tucne, seznamy, kod)
+- Lepsi vizualni odliseni zprav -- gradient pozadi, casova znacka
+- Typing indikator s animaci tri tecek misto spinneru
+- Plynulejsi scroll k posledni zprave
 
-## 7. Globalni UI/UX vylepseni
+**Soubory:**
+- `src/pages/AssistantPage.tsx` -- redesign
 
-**Navigace:**
-- Bottom nav: pridat jemne animace pri prepinani (scale + fade)
-- Aktivni polozka: vyraznejsi vizualni indikace (vyplnena ikona misto obrysove)
+---
 
-**Typografie a spacing:**
-- Sjednotit velikosti nadpisu na vsech strankach
-- Zvetsit mezery mezi sekcemi pro lepsi citelnost
-- Strankove nadpisy: pridat popisnou ikonu
+## 5. iOS Safari kompatibilita
 
-**Micro-interakce:**
-- Skeleton loadery: animovany gradient misto staticke barvy (shimmer efekt)
-- Karty: jemny hover efekt (lift + glow)
-- Uspesne akce: animovany checkmark misto textoveho toastu
+**Problemy k reseni:**
+- `100vh` na iOS Safari nezohlednuje adresni radek -- nahradit za `100dvh` vsude
+- `-webkit-backdrop-filter` uz je deklarovan v BottomNav, overit vsude
+- `scrollbar` CSS pseudo-elementy nefunguji v Safari -- pridat `-webkit-` prefix a fallbacky
+- `touch-action: manipulation` pro eliminaci 300ms delay na double-tap
+- `env(safe-area-inset-bottom)` pro notch zarizeni -- uz castecne implementovano
+- Date input (`type="date"`) ma na iOS odlisny vzhled -- pridat `-webkit-appearance: none` a vlastni styling
+- `position: sticky` problemy v Safari -- overit `sticky-submit` tridu
+- PWA manifest CORS chyba (viditelna v konzoli) -- opravit cestu k `manifest.json`
+
+**Soubory:**
+- `src/styles/industrial.css` -- Safari-specificke opravy
+- `src/components/layout/BottomNav.tsx` -- overeni safe-area
+- `src/components/layout/AppLayout.tsx` -- viewport fixes
+- `index.html` -- manifest link oprava
+- Formularove stranky -- date input styling
 
 ---
 
 ## Technicke detaily
 
-### Nove soubory
-1. `src/components/map/AreaMarkerIcon.tsx` -- vlastni SVG marker ikony podle typu arealu
-2. `src/components/map/RoutePolyline.tsx` -- komponenta pro vykresleni trasy z OSRM dat
-3. `src/components/map/MapControls.tsx` -- floating ovladaci prvky mapy (centrovani, GPS, zoom)
-4. `src/components/map/AreaPopup.tsx` -- vyssi kvalita pop-up obsahu
-5. `src/components/route/RouteMapView.tsx` -- integrovana mapa s trasou
-6. `src/components/route/RouteBottomSheet.tsx` -- mobilni bottom sheet pro seznam zastavek
-7. `src/lib/routing.ts` -- OSRM API volani a dekodovani polyline
-
-### Upravene soubory
-1. `src/components/map/AreasMap.tsx` -- kompletni redesign s novymi markery, tmavym podkladem, clusteringem
-2. `src/components/route/RoutePlanner.tsx` -- kompletni redesign s integraci mapy a OSRM
-3. `src/pages/AreasPage.tsx` -- redesign rozlozeni, integrace mapy a planovace
-4. `src/pages/DashboardPage.tsx` -- reorganizace widgetu, progress ring pro MTH
-5. `src/pages/ServicePage.tsx` -- pridani filtru, souhrnnych statistik
-6. `src/pages/NewAreaPage.tsx` -- seskupeni poli, GPS tlacitko
-7. `src/pages/NewServicePage.tsx` -- seskupeni poli, sticky submit
-8. `src/pages/NewOperationPage.tsx` -- seskupeni poli, sticky submit
-9. `src/pages/SettingsPage.tsx` -- vizualni vylepseni
-10. `src/pages/ManualPage.tsx` -- lepsi mobilni navigace
-11. `src/pages/AssistantPage.tsx` -- vizualni vylepseni chatu
-12. `src/components/layout/BottomNav.tsx` -- animace, vyraznejsi aktivni stav
-13. `src/components/layout/AppHeader.tsx` -- jemne vylepseni
-14. `src/components/dashboard/QuickActionsCard.tsx` -- horizontalni scroll
-15. `src/components/dashboard/MthDisplay.tsx` -- progress ring
-16. `src/styles/industrial.css` -- nove utility tridy, shimmer efekt, hover glow
+### Poradi implementace
+1. Oprava mazani servisu (kriticka chyba)
+2. iOS Safari kompatibilita (siroka oprava)
+3. Marker clustering
+4. Manual redesign
+5. AI Asistent redesign
 
 ### Zavislosti
-- `@changey/react-leaflet-markercluster` (nebo implementace vlastniho clusteringu)
-- Pouziti polyline dekoderu pro OSRM odpovedi (vlastni implementace, ~20 radku)
+- `leaflet.markercluster` (CSS/JS) pro clustering -- nebo vlastni implementace
+- Zadne dalsi nove zavislosti
 
-### OSRM integrace
-- Endpoint: `https://router.project-osrm.org/route/v1/driving/{coordinates}?overview=full&geometries=polyline`
-- Bezplatny, bez API klice
-- Fallback na vzdusne cary pokud OSRM nedostupny
-- Cachovani tras v pameti pro opakované dotazy
+### Rizika
+- Leaflet markercluster muze vyzadovat specificke peer dependency verze -- bude nutne otestovat
+- OSRM demo server ma rate limiting -- stavajici cache v `routing.ts` to resi
+- iOS Safari testovani vyzaduje realne zarizeni nebo simulátor
 
