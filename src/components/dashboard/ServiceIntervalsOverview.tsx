@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ServisniInterval } from '@/types/database';
+import { SERVICE_THRESHOLDS } from '@/types/database';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, CheckCircle, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 
@@ -68,16 +69,17 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
       const remainingMth = nextServiceMth - currentMth;
       const percentRemaining = Math.max(0, Math.min(100, (remainingMth / effectiveInterval) * 100));
 
-      // Determine status based on percentage remaining
+      // Determine status based on MTH thresholds (per Barbieri XRot 95 EVO specs)
+      // 🟢 OK: > 20 mth remaining
+      // 🟠 WARNING: 1-20 mth remaining
+      // 🔴 CRITICAL: <= 0 mth (overdue)
       let status: 'ok' | 'warning' | 'critical';
-      if (remainingMth <= 0) {
-        status = 'critical'; // Overdue
-      } else if (percentRemaining <= 10) {
-        status = 'critical'; // Less than 10% remaining
-      } else if (percentRemaining <= 25) {
-        status = 'warning'; // Less than 25% remaining
+      if (remainingMth <= SERVICE_THRESHOLDS.WARNING) {
+        status = 'critical'; // Overdue or at 0
+      } else if (remainingMth <= SERVICE_THRESHOLDS.OK) {
+        status = 'warning'; // 1-20 mth remaining
       } else {
-        status = 'ok';
+        status = 'ok'; // > 20 mth remaining
       }
 
       return {

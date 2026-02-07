@@ -3,7 +3,25 @@
 export type AppRole = 'admin' | 'technik' | 'operator';
 export type StavStroje = 'aktivní' | 'v_servisu' | 'vyřazeno';
 export type TypZasahu = 'preventivní' | 'oprava' | 'porucha' | 'jiné';
-export type TypArealu = 'vinice' | 'sad' | 'park' | 'zahrada' | 'vodojem' | 'jiné';
+export type TypArealu = 'vinice' | 'sad' | 'park' | 'zahrada' | 'vodojem' | 'úpravna vody' | 'čerpací stanice' | 'vrt' | 'jiné';
+
+// Autonomy S-Mode definitions per Barbieri XRot 95 EVO specifications
+export type SMode = 1 | 2 | 3 | 4;
+
+// Service interval constants (Hard Rules from technical spec)
+export const SERVICE_INTERVALS = {
+  OIL_FIRST: 50,      // First oil change after 50 mth (break-in period)
+  OIL_REGULAR: 100,   // Regular oil change every 100 mth
+  BLADES: 50,         // Blade check every 50 mth
+  MAJOR: 500,         // Major service every 500 mth
+} as const;
+
+// Dashboard threshold constants
+export const SERVICE_THRESHOLDS = {
+  OK: 20,       // > 20 mth remaining = OK (green)
+  WARNING: 0,   // 1-20 mth remaining = WARNING (orange)
+  // <= 0 mth = CRITICAL (red)
+} as const;
 export type OkresCode = 'PI' | 'ST' | 'CB' | 'PT' | 'CK' | 'TA';
 export type ProvozniRezim = 'manuální' | 'poloautonomní' | 'autonomní';
 export type RtkStav = 'FIX' | 'FLOAT' | 'NONE' | 'neznámý';
