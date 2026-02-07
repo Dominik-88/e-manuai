@@ -68,13 +68,13 @@ export default function AreasPage() {
     return [...new Set(areas.map(a => a.okres).filter(Boolean))].sort() as string[];
   }, [areas]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!areas?.length) {
       toast.error('Žádné areály k exportu');
       return;
     }
     try {
-      exportAreasToExcel(areas);
+      await exportAreasToExcel(areas);
       toast.success('Excel byl úspěšně stažen');
     } catch (error) {
       console.error('Export error:', error);
