@@ -1,6 +1,5 @@
 // Export utilities for service records, areas, and GPS data
-import jsPDF from 'jspdf';
-import ExcelJS from 'exceljs';
+// jsPDF and ExcelJS are dynamically imported to avoid bundling in the main chunk
 
 interface ServiceRecord {
   id: string;
@@ -37,6 +36,7 @@ export async function exportServicesToPDF(
   services: ServiceRecord[],
   machine: MachineInfo
 ): Promise<void> {
+  const { default: jsPDF } = await import('jspdf');
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -117,6 +117,7 @@ export async function exportServicesToExcel(
   services: ServiceRecord[],
   machine: MachineInfo
 ): Promise<void> {
+  const ExcelJS = await import('exceljs');
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Servisní záznamy');
 
@@ -194,6 +195,7 @@ export async function exportAreasToExcel(
     kategorie_travnate_plochy: string | null;
   }>
 ): Promise<void> {
+  const ExcelJS = await import('exceljs');
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Areály');
 
