@@ -10,7 +10,7 @@ const AppLayout = lazy(() => import("@/components/layout/AppLayout").then(m => (
 
 // Lazy-loaded route components to reduce initial JS bundle
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
-import LoginPage from "@/pages/auth/LoginPage";
+const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
 const SignupPage = lazy(() => import("@/pages/auth/SignupPage"));
 const ManualPage = lazy(() => import("@/pages/ManualPage"));
 const ServicePage = lazy(() => import("@/pages/ServicePage"));
