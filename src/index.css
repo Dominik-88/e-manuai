@@ -22,8 +22,8 @@
     --popover: 240 8% 11%;
     --popover-foreground: 210 40% 95%;
 
-    /* Primary - Steel Blue */
-    --primary: 220 50% 25%; /* #16213e - Deep steel blue */
+    /* Primary - Steel Blue (brightened for WCAG AA 4.5:1 contrast on dark bg) */
+    --primary: 220 50% 40%; /* #3366a3 - Accessible steel blue */
     --primary-foreground: 210 40% 98%;
 
     /* Secondary - Muted steel */
