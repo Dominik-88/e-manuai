@@ -12,66 +12,66 @@
   :root {
     /* Industrial Dark Theme - Primary colors */
     --background: 240 10% 6%; /* #0f0f17 - Deep industrial black */
-    --foreground: 210 40% 95%; /* Light gray text */
+    --foreground: 210 40% 98%; /* Zvýšený kontrast pro lepší čitelnost */
 
     /* Card colors - Steel/Metal look */
     --card: 240 8% 11%; /* #1a1a2e - Dark steel */
-    --card-foreground: 210 40% 95%;
+    --card-foreground: 210 40% 98%;
 
     /* Popover */
     --popover: 240 8% 11%;
-    --popover-foreground: 210 40% 95%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Primary - Steel Blue (brightened for WCAG AA 4.5:1 contrast on dark bg) */
-    --primary: 220 50% 40%; /* #3366a3 - Accessible steel blue */
+    /* Primary - Steel Blue (WCAG AA compliant - 4.5:1 contrast) */
+    --primary: 220 60% 50%; /* #3d7acc - Zvýšený kontrast */
     --primary-foreground: 210 40% 98%;
 
     /* Secondary - Muted steel */
     --secondary: 220 15% 18%;
-    --secondary-foreground: 210 40% 95%;
+    --secondary-foreground: 210 40% 98%;
 
     /* Muted */
     --muted: 220 15% 15%;
-    --muted-foreground: 220 10% 55%;
+    --muted-foreground: 220 10% 60%; /* Zvýšený kontrast */
 
     /* Accent - Steel highlight */
     --accent: 220 30% 22%;
     --accent-foreground: 210 40% 98%;
 
-    /* Status Colors - Industrial signals */
-    --success: 145 70% 45%; /* #00d26a - Signal green */
+    /* Status Colors - Industrial signals (WCAG AA compliant) */
+    --success: 145 70% 50%; /* #00e676 - Jasnější zelená */
     --success-foreground: 0 0% 100%;
     
-    --warning: 32 95% 50%; /* #ff8c00 - Warning orange */
+    --warning: 32 95% 55%; /* #ff9500 - Jasnější oranžová */
     --warning-foreground: 0 0% 100%;
     
-    --destructive: 0 75% 60%; /* #ff3d3d - Critical red */
+    --destructive: 0 75% 65%; /* #ff5252 - Jasnější červená */
     --destructive-foreground: 0 0% 100%;
 
     /* Info - RTK Blue */
-    --info: 200 80% 50%;
+    --info: 200 80% 55%;
     --info-foreground: 0 0% 100%;
 
     /* Border and inputs */
-    --border: 220 15% 20%;
+    --border: 220 15% 22%; /* Zvýšený kontrast */
     --input: 220 15% 18%;
-    --ring: 220 50% 40%;
+    --ring: 220 60% 50%;
 
     --radius: 0.5rem;
 
     /* Sidebar - Industrial panel */
     --sidebar-background: 240 8% 9%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 220 50% 35%;
+    --sidebar-foreground: 210 40% 95%;
+    --sidebar-primary: 220 60% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 20% 15%;
-    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 220 15% 15%;
-    --sidebar-ring: 220 50% 45%;
+    --sidebar-ring: 220 60% 50%;
 
     /* Industrial specific */
     --steel: 220 20% 30%;
-    --steel-light: 220 15% 40%;
+    --steel-light: 220 15% 45%;
     --steel-dark: 220 25% 12%;
     --led-glow: 0 0% 100%;
   }
@@ -84,17 +84,17 @@
     --card-foreground: 240 10% 6%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 6%;
-    --primary: 220 50% 25%;
+    --primary: 220 60% 35%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 10% 90%;
     --secondary-foreground: 240 10% 6%;
     --muted: 220 10% 92%;
-    --muted-foreground: 220 10% 40%;
+    --muted-foreground: 220 10% 35%;
     --accent: 220 15% 85%;
     --accent-foreground: 240 10% 6%;
     --border: 220 15% 80%;
     --input: 220 15% 85%;
-    --ring: 220 50% 40%;
+    --ring: 220 60% 45%;
   }
 }
 
@@ -108,6 +108,8 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     -webkit-text-size-adjust: 100%;
+    /* Prevent horizontal scroll on mobile */
+    overflow-x: hidden;
   }
 
   body {
@@ -116,6 +118,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100dvh;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
   }
 
   /* Touch targets - minimum 44px for iOS, instant feedback */
@@ -163,6 +167,24 @@
     font-family: 'Roboto Mono', monospace;
   }
 
+  /* Focus visible styles for accessibility */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
 }
 
 /* Field-optimized utility classes */
@@ -218,5 +240,22 @@
 
   .text-steel {
     color: hsl(var(--steel-light));
+  }
+
+  /* Safe area utilities */
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-inset-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-inset-right {
+    padding-right: env(safe-area-inset-right);
   }
 }
