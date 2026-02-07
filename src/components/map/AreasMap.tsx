@@ -8,7 +8,6 @@ import { AreaPopupContent } from './AreaPopup';
 import { MapControls } from './MapControls';
 import { RoutePolyline } from './RoutePolyline';
 import { MarkerClusterGroup } from './MarkerClusterGroup';
-import { renderToStaticMarkup } from 'react-dom/server';
 
 // Fix default marker icons for Leaflet + bundler
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -75,19 +74,21 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
   const clusterMarkers = useMemo(() => {
     return areasWithGps
       .filter(area => !routeAreaIds.includes(area.id))
-      .map(area => ({
-        id: area.id,
-        position: [area.gps_latitude!, area.gps_longitude!] as [number, number],
-        icon: createAreaIcon(area.typ, false),
-        popupContent: renderToStaticMarkup(
-          <AreaPopupContent
-            area={area}
-            isInRoute={false}
-            onAddToRoute={undefined}
-            onRemoveFromRoute={undefined}
-          />
-        ),
-      }));
+      .map(area => {
+        const plocha = area.plocha_m2 ? `${(area.plocha_m2 / 10000).toFixed(2)} ha` : '—';
+        const popupHtml = `<div style="font-family:sans-serif;font-size:13px;line-height:1.5;">
+          <strong>${area.nazev}</strong><br/>
+          <span style="opacity:0.7">${area.typ}${area.okres ? ' • ' + area.okres : ''}</span><br/>
+          <span style="opacity:0.7">Plocha: ${plocha}</span>
+          ${area.poznamky ? '<br/><span style="opacity:0.5;font-size:11px;">' + area.poznamky.slice(0, 80) + '</span>' : ''}
+        </div>`;
+        return {
+          id: area.id,
+          position: [area.gps_latitude!, area.gps_longitude!] as [number, number],
+          icon: createAreaIcon(area.typ, false),
+          popupContent: popupHtml,
+        };
+      });
   }, [areasWithGps, routeAreaIds]);
 
   if (areasWithGps.length === 0) {
