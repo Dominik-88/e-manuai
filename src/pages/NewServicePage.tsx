@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,33 +32,19 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 
-// Enhanced validation schema
-const createServiceSchema = (lastServiceMth: number) => z.object({
-  datum_servisu: z.string().refine(val => {
-    const date = new Date(val);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    return date <= today;
-  }, 'Datum nesmí být v budoucnosti'),
-  mth_pri_servisu: z.number()
-    .min(0, 'MTH musí být kladné číslo')
-    .refine(val => val >= lastServiceMth, {
-      message: `MTH nesmí být nižší než u posledního servisu (${lastServiceMth} mth)`,
-    }),
+const serviceSchema = z.object({
+  datum_servisu: z.string().min(1, 'Vyplňte datum'),
+  mth_pri_servisu: z.number().min(0, 'MTH musí být kladné číslo'),
   typ_zasahu: z.enum(['preventivní', 'oprava', 'porucha', 'jiné']),
-  popis: z.string()
-    .min(10, 'Popis musí mít alespoň 10 znaků')
-    .max(1000, 'Popis může mít maximálně 1000 znaků'),
-  provedl_osoba: z.string()
-    .min(2, 'Vyplňte jméno technika')
-    .max(100, 'Jméno může mít maximálně 100 znaků'),
-  provedla_firma: z.string().max(100, 'Název firmy může mít maximálně 100 znaků').optional(),
+  popis: z.string().min(10, 'Popis musí mít alespoň 10 znaků').max(1000),
+  provedl_osoba: z.string().min(2, 'Vyplňte jméno technika').max(100),
+  provedla_firma: z.string().max(100).optional(),
   areal_id: z.string().optional(),
   servisni_interval_id: z.string().optional(),
-  naklady: z.number().min(0, 'Náklady nemohou být záporné').optional(),
+  naklady: z.number().min(0).optional(),
 });
 
-type ServiceFormData = z.infer<ReturnType<typeof createServiceSchema>>;
+type ServiceFormData = z.infer<typeof serviceSchema>;
 
 export default function NewServicePage() {
   const navigate = useNavigate();
@@ -66,33 +52,11 @@ export default function NewServicePage() {
   const { machine } = useMachine();
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch last service MTH
-  const { data: lastService } = useQuery({
-    queryKey: ['last-service-mth', machine?.id],
-    queryFn: async () => {
-      if (!machine) return null;
-      const { data, error } = await supabase
-        .from('servisni_zaznamy')
-        .select('mth_pri_servisu')
-        .eq('stroj_id', machine.id)
-        .eq('is_deleted', false)
-        .order('mth_pri_servisu', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!machine,
-  });
-
-  const lastServiceMth = lastService?.mth_pri_servisu || 0;
-  const serviceSchema = createServiceSchema(lastServiceMth);
-
   const form = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       datum_servisu: new Date().toISOString().split('T')[0],
-      mth_pri_servisu: machine?.aktualni_mth || 0,
+      mth_pri_servisu: 0,
       typ_zasahu: 'preventivní',
       popis: '',
       provedl_osoba: profile?.full_name || '',
@@ -103,7 +67,20 @@ export default function NewServicePage() {
     },
   });
 
-  // Fetch areas for dropdown
+  // Update MTH default when machine loads
+  useEffect(() => {
+    if (machine) {
+      form.setValue('mth_pri_servisu', machine.aktualni_mth);
+    }
+  }, [machine, form]);
+
+  // Update provedl_osoba when profile loads
+  useEffect(() => {
+    if (profile?.full_name && !form.getValues('provedl_osoba')) {
+      form.setValue('provedl_osoba', profile.full_name);
+    }
+  }, [profile, form]);
+
   const { data: areas } = useQuery({
     queryKey: ['areas'],
     queryFn: async () => {
@@ -116,7 +93,6 @@ export default function NewServicePage() {
     },
   });
 
-  // Fetch service intervals
   const { data: intervals } = useQuery({
     queryKey: ['service-intervals'],
     queryFn: async () => {
@@ -138,7 +114,6 @@ export default function NewServicePage() {
     setSubmitting(true);
 
     try {
-      // Create service record
       const { error } = await supabase
         .from('servisni_zaznamy')
         .insert({
@@ -155,16 +130,18 @@ export default function NewServicePage() {
           naklady: data.naklady || null,
         });
 
-
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message);
+      }
 
       // Update machine MTH if the service MTH is higher
       if (data.mth_pri_servisu > machine.aktualni_mth) {
         await supabase
           .from('stroje')
-          .update({ 
+          .update({
             aktualni_mth: data.mth_pri_servisu,
-            datum_posledni_aktualizace_mth: new Date().toISOString()
+            datum_posledni_aktualizace_mth: new Date().toISOString(),
           })
           .eq('id', machine.id);
       }
@@ -173,7 +150,7 @@ export default function NewServicePage() {
       navigate('/servis');
     } catch (error) {
       console.error('Error saving service:', error);
-      toast.error('Chyba při ukládání záznamu');
+      toast.error(`Chyba: ${error instanceof Error ? error.message : 'Chyba při ukládání záznamu'}`);
     } finally {
       setSubmitting(false);
     }
@@ -181,35 +158,21 @@ export default function NewServicePage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-14 w-14">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-14 w-14" aria-label="Zpět">
           <ArrowLeft className="h-6 w-6" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Nový servisní záznam</h1>
           <p className="text-muted-foreground">
-            Stroj: {machine?.vyrobni_cislo} | Aktuální MTH: {machine?.aktualni_mth}
+            Stroj: {machine?.vyrobni_cislo || '...'} | Aktuální MTH: {machine?.aktualni_mth?.toFixed(1) || '...'}
           </p>
         </div>
       </div>
 
-      {/* MTH warning if lower than last */}
-      {lastServiceMth > 0 && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Poslední zaznamenaný servis byl při <strong>{lastServiceMth} mth</strong>. 
-            Nový záznam nemůže mít nižší hodnotu.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Form */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="dashboard-widget space-y-4">
-            {/* Date and MTH */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -231,25 +194,20 @@ export default function NewServicePage() {
                   <FormItem>
                     <FormLabel>Stav MTH při servisu *</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
+                      <Input
+                        type="number"
                         step="0.1"
-                        min={lastServiceMth}
                         {...field}
                         onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
                         className="h-14 font-mono text-lg"
                       />
                     </FormControl>
-                    <FormDescription>
-                      Min. {lastServiceMth} mth (poslední servis)
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
 
-            {/* Type of service - larger touch targets */}
             <FormField
               control={form.control}
               name="typ_zasahu"
@@ -259,18 +217,18 @@ export default function NewServicePage() {
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                       className="grid grid-cols-2 gap-3"
                     >
                       {[
-                        { value: 'preventivní', label: 'Preventivní', color: 'border-success' },
-                        { value: 'oprava', label: 'Oprava', color: 'border-warning' },
-                        { value: 'porucha', label: 'Porucha', color: 'border-destructive' },
-                        { value: 'jiné', label: 'Jiné', color: 'border-muted' },
+                        { value: 'preventivní', label: 'Preventivní' },
+                        { value: 'oprava', label: 'Oprava' },
+                        { value: 'porucha', label: 'Porucha' },
+                        { value: 'jiné', label: 'Jiné' },
                       ].map(type => (
                         <Label
                           key={type.value}
-                          className={`flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 p-4 text-base font-medium transition-colors hover:bg-muted [&:has([data-state=checked])]:${type.color} [&:has([data-state=checked])]:bg-primary/10`}
+                          className="flex min-h-14 cursor-pointer items-center justify-center rounded-lg border-2 border-border p-4 text-base font-medium transition-colors hover:bg-muted [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10"
                         >
                           <RadioGroupItem value={type.value} className="sr-only" />
                           {type.label}
@@ -283,14 +241,13 @@ export default function NewServicePage() {
               )}
             />
 
-            {/* Service interval selection */}
             <FormField
               control={form.control}
               name="servisni_interval_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Servisní interval (volitelné)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
                     <FormControl>
                       <SelectTrigger className="h-14 text-base">
                         <SelectValue placeholder="Vyberte typ servisu" />
@@ -304,17 +261,11 @@ export default function NewServicePage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormDescription>
-                    Propojí záznam s plánovaným servisním intervalem
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-
-
-            {/* Description */}
             <FormField
               control={form.control}
               name="popis"
@@ -322,11 +273,11 @@ export default function NewServicePage() {
                 <FormItem>
                   <FormLabel>Popis práce * (min. 10 znaků)</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
+                    <Textarea
+                      {...field}
                       rows={4}
                       placeholder="Popište provedené práce..."
-                      className="resize-none"
+                      className="resize-none text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -334,7 +285,6 @@ export default function NewServicePage() {
               )}
             />
 
-            {/* Technician */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -343,7 +293,7 @@ export default function NewServicePage() {
                   <FormItem>
                     <FormLabel>Provedl (jméno) *</FormLabel>
                     <FormControl>
-                      <Input {...field} className="h-12" />
+                      <Input {...field} className="h-12 text-base" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -356,7 +306,7 @@ export default function NewServicePage() {
                   <FormItem>
                     <FormLabel>Firma (volitelné)</FormLabel>
                     <FormControl>
-                      <Input {...field} className="h-12" />
+                      <Input {...field} className="h-12 text-base" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -364,7 +314,6 @@ export default function NewServicePage() {
               />
             </div>
 
-            {/* Area and costs */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -372,9 +321,9 @@ export default function NewServicePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Areál (volitelné)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
-                        <SelectTrigger className="h-12">
+                        <SelectTrigger className="h-12 text-base">
                           <SelectValue placeholder="Vyberte areál" />
                         </SelectTrigger>
                       </FormControl>
@@ -397,12 +346,13 @@ export default function NewServicePage() {
                   <FormItem>
                     <FormLabel>Náklady Kč (volitelné)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
+                      <Input
+                        type="number"
                         step="1"
                         {...field}
+                        value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                        className="h-12 font-mono"
+                        className="h-12 font-mono text-base"
                       />
                     </FormControl>
                     <FormMessage />
@@ -412,21 +362,11 @@ export default function NewServicePage() {
             </div>
           </div>
 
-          {/* Submit button */}
           <div className="flex gap-3">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => navigate(-1)}
-              className="h-12 flex-1"
-            >
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="h-14 flex-1 text-base">
               Zrušit
             </Button>
-            <Button 
-              type="submit" 
-              disabled={submitting}
-              className="h-12 flex-1"
-            >
+            <Button type="submit" disabled={submitting} className="h-14 flex-1 text-base">
               {submitting ? (
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               ) : (

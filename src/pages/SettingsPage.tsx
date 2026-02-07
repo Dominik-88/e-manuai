@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,11 +21,25 @@ import {
 export default function SettingsPage() {
   const { user, profile, role, signOut } = useAuth();
   const { machine, updateMth, refetch } = useMachine();
-  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [fullName, setFullName] = useState('');
   const [saving, setSaving] = useState(false);
-  const [mthValue, setMthValue] = useState(machine?.aktualni_mth?.toString() || '0');
+  const [mthValue, setMthValue] = useState('');
   const [mthOpen, setMthOpen] = useState(false);
   const [mthSaving, setMthSaving] = useState(false);
+
+  // Init fullName when profile loads
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  }, [profile]);
+
+  // Init mthValue when machine loads
+  useEffect(() => {
+    if (machine) {
+      setMthValue(machine.aktualni_mth.toString());
+    }
+  }, [machine]);
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -37,7 +51,8 @@ export default function SettingsPage() {
         .eq('user_id', user.id);
       if (error) throw error;
       toast.success('Profil aktualizován');
-    } catch {
+    } catch (err) {
+      console.error('Profile save error:', err);
       toast.error('Chyba při ukládání profilu');
     } finally {
       setSaving(false);
@@ -56,8 +71,9 @@ export default function SettingsPage() {
       await refetch();
       toast.success(`MTH aktualizováno na ${newMth}`);
       setMthOpen(false);
-    } catch {
-      toast.error('Chyba při aktualizaci MTH');
+    } catch (err) {
+      console.error('MTH update error:', err);
+      toast.error('Chyba při aktualizaci MTH. Nemáte oprávnění?');
     } finally {
       setMthSaving(false);
     }
@@ -88,11 +104,11 @@ export default function SettingsPage() {
             id="fullName"
             value={fullName}
             onChange={e => setFullName(e.target.value)}
-            className="h-12"
+            className="h-12 text-base"
           />
         </div>
 
-        <Button onClick={handleSaveProfile} disabled={saving} className="h-12 w-full">
+        <Button onClick={handleSaveProfile} disabled={saving} className="h-14 w-full text-base">
           {saving ? (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
           ) : (
@@ -122,7 +138,11 @@ export default function SettingsPage() {
             </div>
             <Dialog open={mthOpen} onOpenChange={setMthOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="h-12 gap-2" onClick={() => setMthValue(machine.aktualni_mth.toString())}>
+                <Button
+                  variant="outline"
+                  className="h-14 gap-2 text-base"
+                  onClick={() => setMthValue(machine.aktualni_mth.toString())}
+                >
                   <Gauge className="h-5 w-5" />
                   Upravit MTH
                 </Button>
@@ -152,8 +172,10 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setMthOpen(false)}>Zrušit</Button>
-                  <Button onClick={handleUpdateMth} disabled={mthSaving}>
+                  <Button variant="outline" onClick={() => setMthOpen(false)} className="h-12">
+                    Zrušit
+                  </Button>
+                  <Button onClick={handleUpdateMth} disabled={mthSaving} className="h-12">
                     {mthSaving ? 'Ukládání...' : 'Uložit MTH'}
                   </Button>
                 </DialogFooter>

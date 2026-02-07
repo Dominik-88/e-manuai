@@ -10,38 +10,23 @@ import {
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  {
-    to: '/',
-    icon: LayoutDashboard,
-    label: 'Dashboard',
-  },
-  {
-    to: '/manual',
-    icon: BookOpen,
-    label: 'Manuál',
-  },
-  {
-    to: '/servis',
-    icon: Wrench,
-    label: 'Servis',
-  },
-  {
-    to: '/arealy',
-    icon: MapPin,
-    label: 'Areály',
-  },
-  {
-    to: '/asistent',
-    icon: MessageSquare,
-    label: 'AI',
-  },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/manual', icon: BookOpen, label: 'Manuál' },
+  { to: '/servis', icon: Wrench, label: 'Servis' },
+  { to: '/arealy', icon: MapPin, label: 'Areály' },
+  { to: '/asistent', icon: MessageSquare, label: 'AI' },
 ];
 
 export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-area-pb">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      role="navigation"
+      aria-label="Hlavní navigace"
+    >
       <div className="container mx-auto px-2">
         <div className="flex items-center justify-around">
           {navItems.map((item) => {
@@ -53,22 +38,24 @@ export function BottomNav() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'relative flex min-h-[68px] min-w-[68px] flex-col items-center justify-center gap-1 px-2 py-2 text-muted-foreground transition-colors',
+                  'relative flex min-h-[56px] min-w-[56px] flex-col items-center justify-center gap-1 px-2 py-2 text-muted-foreground transition-colors active:scale-95',
                   isActive && 'text-primary'
                 )}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
               >
                 <item.icon className={cn(
-                  'h-7 w-7 transition-transform',
-                  isActive && 'scale-110'
+                  'h-6 w-6 transition-transform',
+                  isActive && 'scale-105'
                 )} />
                 <span className={cn(
-                  'text-[11px] font-medium uppercase tracking-wide',
+                  'text-[11px] font-medium',
                   isActive && 'font-bold'
                 )}>
                   {item.label}
                 </span>
                 {isActive && (
-                  <div className="absolute bottom-0 h-1 w-14 rounded-t-full bg-primary" />
+                  <div className="absolute bottom-0 h-0.5 w-10 rounded-t-full bg-primary" />
                 )}
               </NavLink>
             );
