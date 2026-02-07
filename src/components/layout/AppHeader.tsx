@@ -29,7 +29,7 @@ export function AppHeader() {
               <span className="font-mono text-lg font-bold text-primary-foreground">B</span>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-sm font-semibold leading-none">XRot 95 EVO</h1>
+              <h1 className="text-sm font-semibold leading-none">e-ManuAI</h1>
               {!loading && machine && (
                 <p className="text-xs text-muted-foreground">{machine.vyrobni_cislo}</p>
               )}
