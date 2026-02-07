@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
+    force: true,
   },
   build: {
     sourcemap: true,
