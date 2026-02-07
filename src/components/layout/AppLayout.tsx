@@ -25,7 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background" style={{ minHeight: '100dvh' }}>
       {/* Sticky header */}
       <AppHeader />
 

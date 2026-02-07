@@ -3,6 +3,8 @@ import { useMachine } from '@/hooks/useMachine';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
 import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
+import { QuickServiceConfirm } from '@/components/dashboard/QuickServiceConfirm';
+import { AreaStats } from '@/components/dashboard/AreaStats';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
 import { ServiceIntervalsOverview } from '@/components/dashboard/ServiceIntervalsOverview';
 import { TelemetryLive } from '@/components/dashboard/TelemetryLive';
@@ -55,6 +57,9 @@ export default function DashboardPage() {
           <MachineStatusCard machine={machine} />
         </div>
 
+        {/* Quick service confirmation */}
+        <QuickServiceConfirm />
+
         {/* Service intervals with color indicators */}
         <div>
           <h2 className="mb-3 text-lg font-semibold">Servisní intervaly</h2>
@@ -69,6 +74,9 @@ export default function DashboardPage() {
 
         {/* Session history */}
         <SessionHistory machineId={machine.id} />
+
+        {/* Area stats */}
+        <AreaStats machineId={machine.id} />
 
         {/* AI Diagnostics */}
         <AIDiagnostics />

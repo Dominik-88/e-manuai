@@ -115,13 +115,28 @@
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100dvh;
   }
 
-  /* Touch targets - minimum 44px for iOS */
+  /* Touch targets - minimum 44px for iOS, instant feedback */
   button, a[href], [role="button"] {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Instant touch feedback for all interactive elements */
+  button:active, a:active, [role="button"]:active {
+    transform: scale(0.97);
+    transition: transform 0.05s ease-out;
+  }
+
+  /* Hardware-accelerated animations */
+  .animate-spin, .animate-pulse, [class*="transition"] {
+    will-change: transform;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 
   /* Safari backdrop-filter fallback */
