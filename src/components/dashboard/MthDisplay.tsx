@@ -55,7 +55,7 @@ export function MthDisplay({ machine }: MthDisplayProps) {
           </div>
           
           <Button variant="ghost" size="sm" className="h-8 gap-1" asChild>
-            <Link to="/stroj/mth">
+            <Link to="/nastaveni">
               <Edit2 className="h-3 w-3" />
               <span className="text-xs">Upravit MTH</span>
             </Link>
