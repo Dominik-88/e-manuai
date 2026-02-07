@@ -181,22 +181,30 @@ export default function ServiceDetailPage() {
         })
         .eq('id', service.id);
 
-      if (error) throw error;
+      if (error) {
+        toast.error('Chyba při mazání: ' + error.message);
+        console.error('Delete error:', error);
+        return;
+      }
 
-      await supabase.rpc('insert_audit_log', {
+      // Audit log — fire and forget
+      supabase.rpc('insert_audit_log', {
         _tabulka: 'servisni_zaznamy',
         _zaznam_id: service.id,
         _typ_zmeny: 'smazání',
         _puvodni_data: service as any,
         _poznamka: deleteReason.trim(),
+      }).then(({ error: auditErr }) => {
+        if (auditErr) console.warn('Audit log failed:', auditErr);
       });
 
       queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['recent-services'] });
+      queryClient.invalidateQueries({ queryKey: ['last-services'] });
       toast.success('Záznam byl smazán');
       navigate('/servis');
-    } catch (err) {
-      toast.error('Chyba při mazání');
+    } catch (err: any) {
+      toast.error('Chyba při mazání: ' + (err.message || ''));
       console.error(err);
     } finally {
       setDeleting(false);

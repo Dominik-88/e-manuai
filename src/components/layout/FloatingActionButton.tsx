@@ -31,7 +31,7 @@ export function FloatingActionButton() {
   };
 
   return (
-    <div className="fixed right-6 z-50" style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 16px))' }}>
+    <div className="fixed right-4 z-50" style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 16px))' }}>
       {/* Backdrop */}
       {isOpen && (
         <div
@@ -68,23 +68,23 @@ export function FloatingActionButton() {
         ))}
       </div>
 
-      {/* Main FAB button */}
+      {/* Main FAB button - smaller */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 active:scale-95',
+          'flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 active:scale-95',
           isOpen
             ? 'rotate-45 bg-destructive text-destructive-foreground'
-            : 'bg-primary text-primary-foreground'
+            : 'bg-primary/90 text-primary-foreground'
         )}
         aria-label={isOpen ? 'Zavřít menu' : 'Otevřít rychlé akce'}
         aria-expanded={isOpen}
         aria-haspopup="menu"
       >
         {isOpen ? (
-          <X className="h-6 w-6" />
+          <X className="h-5 w-5" />
         ) : (
-          <Plus className="h-6 w-6" />
+          <Plus className="h-5 w-5" />
         )}
       </button>
     </div>

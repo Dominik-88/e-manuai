@@ -123,6 +123,11 @@
 
 /* Touch optimization — eliminate 300ms delay */
 html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button, a[href], [role="button"], input, select, textarea, label { touch-action: manipulation; }
+
+/* Minimum touch targets for all interactive elements */
+button, [role="button"] { min-height: 44px; }
+a[href]:not(.inline-link) { min-height: 44px; display: inline-flex; align-items: center; }
 
 /* iOS date input fix */
 input[type="date"],

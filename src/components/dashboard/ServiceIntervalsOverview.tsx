@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { ServisniInterval } from '@/types/database';
 import { SERVICE_THRESHOLDS } from '@/types/database';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, CheckCircle, Clock, AlertCircle, ArrowRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, AlertCircle, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
 import { hapticFeedback } from '@/hooks/useSunGlare';
+import { toast } from 'sonner';
 
 interface ServiceIntervalsOverviewProps {
   machineId: string;
@@ -22,7 +24,11 @@ interface IntervalWithStatus extends ServisniInterval {
 }
 
 export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceIntervalsOverviewProps) {
-  // Fetch intervals
+  const { user, isAdmin, isTechnik } = useAuth();
+  const queryClient = useQueryClient();
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const canConfirm = isAdmin || isTechnik;
+
   const { data: intervals } = useQuery({
     queryKey: ['service-intervals'],
     queryFn: async () => {
@@ -35,7 +41,6 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
     },
   });
 
-  // Fetch last service for each interval type
   const { data: lastServices } = useQuery({
     queryKey: ['last-services', machineId],
     queryFn: async () => {
@@ -51,16 +56,13 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
     enabled: !!machineId,
   });
 
-  // Calculate status for each interval
   const intervalsWithStatus: IntervalWithStatus[] = React.useMemo(() => {
     if (!intervals) return [];
 
     return intervals.map(interval => {
-      // Find last service for this interval
       const lastService = lastServices?.find(s => s.servisni_interval_id === interval.id);
       const lastServiceMth = lastService?.mth_pri_servisu || 0;
 
-      // Special case: first oil change is at 50 mth
       const isFirstService = lastServiceMth === 0;
       const effectiveInterval = isFirstService && interval.prvni_servis_mth
         ? interval.prvni_servis_mth
@@ -70,43 +72,61 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
       const remainingMth = nextServiceMth - currentMth;
       const percentRemaining = Math.max(0, Math.min(100, (remainingMth / effectiveInterval) * 100));
 
-      // Determine status based on MTH thresholds (per Barbieri XRot 95 EVO specs)
-      // 🟢 OK: > 20 mth remaining
-      // 🟠 WARNING: 1-20 mth remaining
-      // 🔴 CRITICAL: <= 0 mth (overdue)
       let status: 'ok' | 'warning' | 'critical';
       if (remainingMth <= SERVICE_THRESHOLDS.WARNING) {
-        status = 'critical'; // Overdue or at 0
+        status = 'critical';
       } else if (remainingMth <= SERVICE_THRESHOLDS.OK) {
-        status = 'warning'; // 1-20 mth remaining
+        status = 'warning';
       } else {
-        status = 'ok'; // > 20 mth remaining
+        status = 'ok';
       }
 
-      return {
-        ...interval,
-        lastServiceMth,
-        remainingMth,
-        nextServiceMth,
-        status,
-        percentRemaining,
-      };
+      return { ...interval, lastServiceMth, remainingMth, nextServiceMth, status, percentRemaining };
     });
   }, [intervals, lastServices, currentMth]);
 
-  // Summary counts
   const summary = {
     ok: intervalsWithStatus.filter(i => i.status === 'ok').length,
     warning: intervalsWithStatus.filter(i => i.status === 'warning').length,
     critical: intervalsWithStatus.filter(i => i.status === 'critical').length,
   };
 
-  // Haptic feedback when critical intervals exist
   React.useEffect(() => {
     if (summary.critical > 0) {
       hapticFeedback('critical');
     }
   }, [summary.critical]);
+
+  const handleConfirmInterval = async (interval: IntervalWithStatus) => {
+    if (!user || !machineId) return;
+    setConfirmingId(interval.id);
+
+    try {
+      const { error } = await supabase.from('servisni_zaznamy').insert({
+        stroj_id: machineId,
+        datum_servisu: new Date().toISOString().split('T')[0],
+        mth_pri_servisu: currentMth,
+        typ_zasahu: 'preventivní',
+        popis: `Rychlé potvrzení: ${interval.nazev}`,
+        provedl_osoba: user.email || 'Neznámý',
+        user_id: user.id,
+        servisni_interval_id: interval.id,
+      });
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['last-services'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-services'] });
+      queryClient.invalidateQueries({ queryKey: ['last-services-notif'] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      toast.success(`Interval „${interval.nazev}" restartován`);
+      if ('vibrate' in navigator) navigator.vibrate(50);
+    } catch (err: any) {
+      toast.error('Chyba: ' + (err.message || 'Neznámá chyba'));
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   const statusConfig = {
     ok: {
@@ -190,6 +210,7 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
         {intervalsWithStatus.map(interval => {
           const config = statusConfig[interval.status];
           const Icon = config.icon;
+          const isConfirming = confirmingId === interval.id;
 
           return (
             <div
@@ -211,16 +232,34 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
                     {interval.prvni_servis_mth && ` (první: ${interval.prvni_servis_mth} mth)`}
                   </p>
                 </div>
-                <div className="text-right">
-                  <span className={cn('font-mono text-sm font-medium', config.textColor)}>
-                    {interval.remainingMth > 0 
-                      ? `${interval.remainingMth.toFixed(0)} mth`
-                      : 'PO TERMÍNU!'
-                    }
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    další ~{interval.nextServiceMth.toFixed(0)} mth
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <span className={cn('font-mono text-sm font-medium', config.textColor)}>
+                      {interval.remainingMth > 0 
+                        ? `${interval.remainingMth.toFixed(0)} mth`
+                        : 'PO TERMÍNU!'
+                      }
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      další ~{interval.nextServiceMth.toFixed(0)} mth
+                    </p>
+                  </div>
+                  {/* Quick confirm button */}
+                  {canConfirm && (
+                    <button
+                      onClick={() => handleConfirmInterval(interval)}
+                      disabled={isConfirming}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-success/20 text-success transition-colors hover:bg-success/30 active:scale-95 disabled:opacity-50"
+                      aria-label={`Potvrdit úkon: ${interval.nazev}`}
+                      title="Potvrdit úkon – restartovat interval"
+                    >
+                      {isConfirming ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

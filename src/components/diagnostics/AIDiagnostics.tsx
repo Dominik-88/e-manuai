@@ -11,7 +11,8 @@ export function AIDiagnostics() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const { machine } = useMachine();
 
   const handleFile = (file: File) => {
@@ -71,14 +72,13 @@ export function AIDiagnostics() {
       const data = await response.json();
       setAnalysis(data.analysis);
 
-      // Haptic feedback on result
       if ('vibrate' in navigator) {
         if (data.analysis.includes('🔴') || data.analysis.includes('KRITICKÉ')) {
-          navigator.vibrate([200, 100, 200, 100, 200]); // SOS pattern for critical
+          navigator.vibrate([200, 100, 200, 100, 200]);
         } else if (data.analysis.includes('⚠️')) {
-          navigator.vibrate([200, 100, 200]); // Double pulse for warning
+          navigator.vibrate([200, 100, 200]);
         } else {
-          navigator.vibrate(100); // Single short for OK
+          navigator.vibrate(100);
         }
       }
     } catch (err) {
@@ -92,6 +92,9 @@ export function AIDiagnostics() {
     setImage(null);
     setAnalysis(null);
     setError(null);
+    // Reset file inputs
+    if (cameraRef.current) cameraRef.current.value = '';
+    if (galleryRef.current) galleryRef.current.value = '';
   };
 
   return (
@@ -100,11 +103,21 @@ export function AIDiagnostics() {
         AI Diagnostika opotřebení
       </h3>
 
+      {/* Separate input for camera (with capture) */}
       <input
-        ref={fileRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+        className="hidden"
+      />
+
+      {/* Separate input for gallery (without capture) */}
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
         className="hidden"
       />
@@ -116,7 +129,7 @@ export function AIDiagnostics() {
           </p>
           <div className="grid grid-cols-2 gap-2">
             <Button
-              onClick={() => fileRef.current?.click()}
+              onClick={() => cameraRef.current?.click()}
               className="h-14 gap-2 text-base font-bold"
             >
               <Camera className="h-5 w-5" />
@@ -124,14 +137,7 @@ export function AIDiagnostics() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => {
-                // Remove capture attribute for gallery
-                if (fileRef.current) {
-                  fileRef.current.removeAttribute('capture');
-                  fileRef.current.click();
-                  fileRef.current.setAttribute('capture', 'environment');
-                }
-              }}
+              onClick={() => galleryRef.current?.click()}
               className="h-14 gap-2 text-base"
             >
               <Upload className="h-5 w-5" />

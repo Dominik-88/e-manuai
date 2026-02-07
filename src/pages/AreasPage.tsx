@@ -129,7 +129,7 @@ export default function AreasPage() {
           <div>
             <h1 className="text-2xl font-bold">Areály</h1>
             <p className="text-xs text-muted-foreground">
-              {areas?.length || 0} objektů · {(totalArea / 10000).toFixed(1)} ha · {totalFence.toLocaleString('cs-CZ')} bm
+              {areas?.length || 0} objektů · {totalArea.toLocaleString('cs-CZ')} m² · {totalFence.toLocaleString('cs-CZ')} bm
             </p>
           </div>
         </div>
@@ -220,8 +220,8 @@ export default function AreasPage() {
         </div>
         <div className="flex shrink-0 items-center gap-1.5 rounded-lg bg-success/10 px-3 py-2">
           <Ruler className="h-3 w-3 text-success" />
-          <span className="font-mono text-sm font-bold text-success">{(totalArea / 10000).toFixed(1)}</span>
-          <span className="text-[10px] text-muted-foreground">ha</span>
+          <span className="font-mono text-sm font-bold text-success">{totalArea.toLocaleString('cs-CZ')}</span>
+          <span className="text-[10px] text-muted-foreground">m²</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 rounded-lg bg-info/10 px-3 py-2">
           <Fence className="h-3 w-3 text-info" />

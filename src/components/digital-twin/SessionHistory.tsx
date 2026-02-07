@@ -1,14 +1,29 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, MapPin, Gauge, Navigation, ChevronRight } from 'lucide-react';
+import { Clock, MapPin, Gauge, Navigation, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface SessionHistoryProps {
   machineId: string;
 }
 
 export function SessionHistory({ machineId }: SessionHistoryProps) {
+  const queryClient = useQueryClient();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['mowing-sessions', machineId],
     queryFn: async () => {
@@ -23,6 +38,26 @@ export function SessionHistory({ machineId }: SessionHistoryProps) {
     },
     enabled: !!machineId,
   });
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('seceni_relace')
+        .delete()
+        .eq('id', deleteId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['mowing-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions-stats'] });
+      toast.success('Relace smazána');
+    } catch (err: any) {
+      toast.error('Chyba při mazání: ' + (err.message || 'Neznámá chyba'));
+    } finally {
+      setDeleting(false);
+      setDeleteId(null);
+    }
+  };
 
   if (isLoading) return null;
   if (!sessions?.length) return null;
@@ -40,7 +75,7 @@ export function SessionHistory({ machineId }: SessionHistoryProps) {
           const hasTrajectory = !!s.trajektorie_geojson;
 
           return (
-            <div key={s.id} className="flex items-center gap-3 rounded-lg bg-muted/30 p-3">
+            <div key={s.id} className="group flex items-center gap-3 rounded-lg bg-muted/30 p-3">
               <div className={cn(
                 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
                 hasTrajectory ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'
@@ -73,10 +108,39 @@ export function SessionHistory({ machineId }: SessionHistoryProps) {
               {hasTrajectory && (
                 <div className="text-xs text-success">GPS ✓</div>
               )}
+              <button
+                onClick={() => setDeleteId(s.id)}
+                className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                aria-label="Smazat relaci"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           );
         })}
       </div>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Smazat relaci sečení?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tuto akci nelze vrátit zpět. Data o trase a ploše budou ztracena.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Zrušit</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Smazat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

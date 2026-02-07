@@ -20,13 +20,20 @@ export function AppHeader() {
   const { machine, loading } = useMachine();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur" style={{ WebkitBackdropFilter: 'blur(12px)', backdropFilter: 'blur(12px)' }}>
+    <header
+      className="sticky top-0 z-40 border-b border-border bg-cover bg-center"
+      style={{
+        backgroundImage: 'linear-gradient(to right, hsl(var(--card) / 0.92), hsl(var(--card) / 0.85)), url(/images/barbieri-hero.jpeg)',
+        WebkitBackdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(12px)',
+      }}
+    >
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Left: Logo + Machine info */}
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded bg-primary">
-              <span className="font-mono text-lg font-bold text-primary-foreground">B</span>
+              <span className="font-mono text-xs font-bold leading-none text-primary-foreground">BHV</span>
             </div>
             <div className="hidden sm:block">
               <h1 className="text-sm font-semibold leading-none">e-ManuAI</h1>
@@ -49,13 +56,8 @@ export function AppHeader() {
 
         {/* Right: Status + Actions */}
         <div className="flex items-center gap-2">
-          {/* Offline indicator */}
           <OfflineIndicator />
-
-          {/* Notifications */}
           <NotificationCenter />
-
-          {/* User menu - 56px touch target */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-14 w-14">
