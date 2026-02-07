@@ -4,7 +4,6 @@ import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
 import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
-
 import { AreaStats } from '@/components/dashboard/AreaStats';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
 import { ServiceIntervalsOverview } from '@/components/dashboard/ServiceIntervalsOverview';
@@ -37,22 +36,23 @@ export default function DashboardPage() {
 
   if (machineLoading) {
     return (
-      <div className="space-y-4 animate-fade-in">
+      <div className="space-y-4 animate-fade-in" role="status" aria-label="Načítání dashboardu">
         <div className="shimmer h-32 w-full" />
         <div className="grid gap-4 md:grid-cols-2">
           <div className="shimmer h-48" />
           <div className="shimmer h-48" />
         </div>
         <div className="shimmer h-64" />
+        <span className="sr-only">Načítání...</span>
       </div>
     );
   }
 
   if (!machine) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="flex flex-col items-center justify-center py-16 text-center" role="alert">
         <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50">
-          <span className="text-4xl">🚜</span>
+          <span className="text-4xl" role="img" aria-label="Stroj">🚜</span>
         </div>
         <h2 className="text-xl font-semibold">Žádný stroj není k dispozici</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -67,55 +67,74 @@ export default function DashboardPage() {
       <OfflineBanner />
       <div className="space-y-5 animate-fade-in">
         {/* Branding */}
-        <h1 className="text-center text-lg font-bold tracking-wide text-foreground">
-          e-ManuAI <span className="text-muted-foreground">•</span> by <span className="text-muted-foreground">•</span> Dominik Schmied
-        </h1>
+        <header className="text-center">
+          <h1 className="text-lg font-bold tracking-wide text-foreground">
+            e-ManuAI <span className="text-muted-foreground">•</span> by <span className="text-muted-foreground">•</span> Dominik Schmied
+          </h1>
+        </header>
 
         {/* MTH Display - Hero section */}
-        <MthDisplay machine={machine} />
+        <section aria-label="Aktuální stav motoru">
+          <MthDisplay machine={machine} />
+        </section>
 
         {/* Quick actions - horizontal scroll */}
-        <QuickActionsCard />
+        <section aria-label="Rychlé akce">
+          <QuickActionsCard />
+        </section>
 
         {/* Machine status */}
-        <MachineStatusCard machine={machine} />
+        <section aria-label="Stav stroje">
+          <MachineStatusCard machine={machine} />
+        </section>
 
         {/* Service intervals with color indicators */}
-        <div>
-          <h2 className="section-heading mb-3">
-            <Activity className="h-4 w-4" />
+        <section aria-labelledby="service-intervals-heading">
+          <h2 id="service-intervals-heading" className="section-heading mb-3">
+            <Activity className="h-4 w-4" aria-hidden="true" />
             Servisní intervaly
           </h2>
           <ServiceIntervalsOverview
             machineId={machine.id}
             currentMth={machine.aktualni_mth}
           />
-        </div>
+        </section>
 
         {/* Area stats */}
-        <AreaStats machineId={machine.id} />
+        <section aria-label="Statistiky areálů">
+          <AreaStats machineId={machine.id} />
+        </section>
 
         {/* Recent activity */}
-        <RecentActivityCard machineId={machine.id} />
+        <section aria-label="Nedávná aktivita">
+          <RecentActivityCard machineId={machine.id} />
+        </section>
 
         {/* Collapsible: Digital Twin */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/50">
-            <span className="section-heading">
-              <Cpu className="h-4 w-4" />
-              Digital Twin & Telemetrie
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 space-y-4">
-            <MowingSessionRecorder machineId={machine.id} currentMth={machine.aktualni_mth} />
-            <SessionHistory machineId={machine.id} />
-            <TelemetryLive />
-          </CollapsibleContent>
-        </Collapsible>
+        <section aria-labelledby="digital-twin-heading">
+          <Collapsible>
+            <CollapsibleTrigger 
+              className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/50 min-h-[56px]"
+              aria-label="Rozbalit Digital Twin a Telemetrii"
+            >
+              <span id="digital-twin-heading" className="section-heading">
+                <Cpu className="h-4 w-4" aria-hidden="true" />
+                Digital Twin & Telemetrie
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" aria-hidden="true" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 space-y-4">
+              <MowingSessionRecorder machineId={machine.id} currentMth={machine.aktualni_mth} />
+              <SessionHistory machineId={machine.id} />
+              <TelemetryLive />
+            </CollapsibleContent>
+          </Collapsible>
+        </section>
 
         {/* AI Diagnostics */}
-        <AIDiagnostics />
+        <section aria-label="AI Diagnostika">
+          <AIDiagnostics />
+        </section>
       </div>
     </>
   );
