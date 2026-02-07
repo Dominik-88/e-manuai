@@ -136,6 +136,29 @@ export interface ProvozniZaznam {
   updated_at: string;
 }
 
+// Digital Twin - Mowing session with trajectory
+export interface SeceniRelace {
+  id: string;
+  stroj_id: string;
+  areal_id: string | null;
+  user_id: string;
+  datum_cas_start: string;
+  datum_cas_konec: string | null;
+  mth_start: number;
+  mth_konec: number | null;
+  mth_delta: number | null;
+  plocha_posekana_m2: number | null;
+  prumerna_rychlost_kmh: number | null;
+  rtk_fix_ratio: number | null;
+  trajektorie_geojson: string | null;
+  rezim: string;
+  s_mode: number | null;
+  spotreba_l: number | null;
+  poznamky: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLog {
   id: string;
   tabulka: string;

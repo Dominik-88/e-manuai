@@ -150,3 +150,39 @@
   --background: 0 0% 0%;
   --muted-foreground: 0 0% 80%;
 }
+
+/* Sun-Glare mode: extreme contrast for direct sunlight */
+.sun-glare {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 5%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 145 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 10%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 8%;
+  --muted-foreground: 0 0% 70%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 100%;
+  --border: 0 0% 25%;
+  --input: 0 0% 10%;
+  --ring: 145 100% 50%;
+  --success: 145 100% 55%;
+  --warning: 40 100% 55%;
+  --destructive: 0 100% 55%;
+  --steel: 0 0% 20%;
+  --steel-light: 0 0% 35%;
+  --steel-dark: 0 0% 8%;
+}
+
+.sun-glare * {
+  text-shadow: none !important;
+  font-weight: 600;
+}
+
+.sun-glare .font-mono {
+  font-weight: 700;
+}

@@ -3,7 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Wrench, Save, Gauge } from 'lucide-react';
+import { User, Wrench, Save, Gauge, Sun } from 'lucide-react';
+import { SunGlareToggle } from '@/components/settings/SunGlareToggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -184,6 +185,18 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Sun-Glare & Haptic settings */}
+      <div className="dashboard-widget space-y-4">
+        <div className="flex items-center gap-3">
+          <Sun className="h-6 w-6 text-warning" />
+          <div>
+            <p className="font-semibold">Terénní režim</p>
+            <p className="text-sm text-muted-foreground">Kontrast a haptická odezva</p>
+          </div>
+        </div>
+        <SunGlareToggle />
+      </div>
 
       {/* Sign out */}
       <Button variant="destructive" onClick={signOut} className="h-14 w-full text-base">

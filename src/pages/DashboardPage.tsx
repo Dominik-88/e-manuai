@@ -6,6 +6,9 @@ import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
 import { ServiceIntervalsOverview } from '@/components/dashboard/ServiceIntervalsOverview';
 import { TelemetryLive } from '@/components/dashboard/TelemetryLive';
+import { MowingSessionRecorder } from '@/components/digital-twin/MowingSessionRecorder';
+import { SessionHistory } from '@/components/digital-twin/SessionHistory';
+import { AIDiagnostics } from '@/components/diagnostics/AIDiagnostics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { OfflineBanner } from '@/components/layout/OfflineIndicator';
 
@@ -60,6 +63,15 @@ export default function DashboardPage() {
             currentMth={machine.aktualni_mth} 
           />
         </div>
+
+        {/* Digital Twin - Mowing session recorder */}
+        <MowingSessionRecorder machineId={machine.id} currentMth={machine.aktualni_mth} />
+
+        {/* Session history */}
+        <SessionHistory machineId={machine.id} />
+
+        {/* AI Diagnostics */}
+        <AIDiagnostics />
 
         {/* Recent activity */}
         <RecentActivityCard machineId={machine.id} />
