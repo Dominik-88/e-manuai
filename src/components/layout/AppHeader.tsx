@@ -19,7 +19,7 @@ export function AppHeader() {
   const { machine, loading } = useMachine();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur" style={{ WebkitBackdropFilter: 'blur(12px)', backdropFilter: 'blur(12px)' }}>
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Left: Logo + Machine info */}
         <div className="flex items-center gap-3">

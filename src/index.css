@@ -103,9 +103,33 @@
     @apply border-border;
   }
 
+  /* Safari iOS touch fixes */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Touch targets - minimum 44px for iOS */
+  button, a[href], [role="button"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Safari backdrop-filter fallback */
+  @supports not (backdrop-filter: blur(10px)) {
+    .backdrop-blur,
+    [class*="backdrop-blur"] {
+      background-color: hsl(var(--card) / 0.98) !important;
+    }
   }
 
   /* Monospace for technical data */

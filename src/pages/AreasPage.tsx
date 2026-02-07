@@ -1,21 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, MapPin, ExternalLink, FileSpreadsheet, X, Map, List, Ruler, Fence } from 'lucide-react';
+import { Plus, Search, MapPin, ExternalLink, FileSpreadsheet, X, Map, List, Ruler, Fence, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { OKRES_NAMES } from '@/types/database';
-import type { OkresCode } from '@/types/database';
+import type { OkresCode, TypArealu } from '@/types/database';
 import { exportAreasToExcel } from '@/lib/export';
 import { toast } from 'sonner';
 import { AreasMap } from '@/components/map/AreasMap';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function AreasPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [filterTyp, setFilterTyp] = useState<string>('all');
+  const [filterOkres, setFilterOkres] = useState<string>('all');
 
   const { data: areas, isLoading } = useQuery({
     queryKey: ['areas-full'],
@@ -33,13 +42,31 @@ export default function AreasPage() {
     },
   });
 
-  const filteredAreas = areas?.filter(area =>
-    area.nazev.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    area.okres?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAreas = useMemo(() => {
+    if (!areas) return [];
+    return areas.filter(area => {
+      const matchesSearch = !searchQuery ||
+        area.nazev.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        area.okres?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesTyp = filterTyp === 'all' || area.typ === filterTyp;
+      const matchesOkres = filterOkres === 'all' || area.okres === filterOkres;
+      return matchesSearch && matchesTyp && matchesOkres;
+    });
+  }, [areas, searchQuery, filterTyp, filterOkres]);
 
   const totalArea = areas?.reduce((sum, a) => sum + (a.plocha_m2 || 0), 0) || 0;
   const totalFence = areas?.reduce((sum, a) => sum + (a.obvod_oploceni_m || 0), 0) || 0;
+
+  // Get unique types and okresy for filters
+  const uniqueTypes = useMemo(() => {
+    if (!areas) return [];
+    return [...new Set(areas.map(a => a.typ).filter(Boolean))].sort();
+  }, [areas]);
+
+  const uniqueOkresy = useMemo(() => {
+    if (!areas) return [];
+    return [...new Set(areas.map(a => a.okres).filter(Boolean))].sort() as string[];
+  }, [areas]);
 
   const handleExportExcel = () => {
     if (!areas?.length) {
@@ -101,8 +128,44 @@ export default function AreasPage() {
         )}
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <Select value={filterTyp} onValueChange={setFilterTyp}>
+          <SelectTrigger className="h-10 w-[160px]">
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            <SelectValue placeholder="Typ" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všechny typy</SelectItem>
+            {uniqueTypes.map(t => (
+              <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterOkres} onValueChange={setFilterOkres}>
+          <SelectTrigger className="h-10 w-[180px]">
+            <SelectValue placeholder="Okres" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všechny okresy</SelectItem>
+            {uniqueOkresy.map(o => (
+              <SelectItem key={o} value={o}>
+                {OKRES_NAMES[o as OkresCode] || o}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {(filterTyp !== 'all' || filterOkres !== 'all') && (
+          <Button variant="ghost" size="sm" className="h-10" onClick={() => { setFilterTyp('all'); setFilterOkres('all'); }}>
+            <X className="mr-1 h-3.5 w-3.5" /> Zrušit filtry
+          </Button>
+        )}
+      </div>
+
       {/* Results count */}
-      {searchQuery && filteredAreas && (
+      {(searchQuery || filterTyp !== 'all' || filterOkres !== 'all') && filteredAreas && (
         <p className="text-sm text-muted-foreground">
           Nalezeno: {filteredAreas.length} {filteredAreas.length === 1 ? 'areál' : 'areálů'}
         </p>
