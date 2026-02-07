@@ -13,13 +13,16 @@ import ManualPage from "@/pages/ManualPage";
 import ServicePage from "@/pages/ServicePage";
 import NewServicePage from "@/pages/NewServicePage";
 import AreasPage from "@/pages/AreasPage";
+import NewAreaPage from "@/pages/NewAreaPage";
+import NewOperationPage from "@/pages/NewOperationPage";
+import SettingsPage from "@/pages/SettingsPage";
 import AssistantPage from "@/pages/AssistantPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
       retry: 1,
     },
   },
@@ -50,7 +53,10 @@ const App = () => (
               <Route path="/servis/novy" element={<NewServicePage />} />
               <Route path="/servis/:id" element={<ServicePage />} />
               <Route path="/arealy" element={<AreasPage />} />
+              <Route path="/arealy/novy" element={<NewAreaPage />} />
               <Route path="/arealy/:id" element={<AreasPage />} />
+              <Route path="/provoz/novy" element={<NewOperationPage />} />
+              <Route path="/nastaveni" element={<SettingsPage />} />
               <Route path="/asistent" element={<AssistantPage />} />
             </Route>
 

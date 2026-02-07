@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Search, ChevronRight, BookOpen, ChevronDown } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, ChevronDown, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // Manual structure based on authentic Barbieri documentation
@@ -68,7 +69,6 @@ export default function ManualPage() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
 
-  // Scroll to top when selecting a new section
   React.useEffect(() => {
     if (selectedSection && contentRef.current) {
       contentRef.current.scrollTo(0, 0);
@@ -84,7 +84,6 @@ export default function ManualPage() {
     );
   };
 
-  // Filter sections based on search
   const filteredStructure = manualStructure.map(chapter => ({
     ...chapter,
     sections: chapter.sections.filter(section =>
@@ -100,10 +99,13 @@ export default function ManualPage() {
     .flatMap(ch => ch.sections)
     .find(s => s.id === selectedSection);
 
+  // Mobile: show content directly, hide TOC when section selected
+  const showContent = selectedSection && selectedContent;
+
   return (
-    <div className="flex flex-col gap-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+    <div className="space-y-4">
       {/* Search bar */}
-      <div className="relative shrink-0">
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
@@ -114,16 +116,33 @@ export default function ManualPage() {
         />
       </div>
 
-      <div className="flex flex-1 gap-4 overflow-hidden min-h-0">
-        {/* Table of contents */}
-        <div className="w-72 shrink-0 overflow-hidden rounded-lg border border-border bg-card">
+      {/* Mobile: Back button when viewing content */}
+      {showContent && (
+        <div className="md:hidden">
+          <Button 
+            variant="ghost" 
+            onClick={() => setSelectedSection(null)}
+            className="h-12 gap-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Zpět na obsah
+          </Button>
+        </div>
+      )}
+
+      <div className="flex gap-4">
+        {/* Table of contents - hidden on mobile when content shown */}
+        <div className={cn(
+          'w-full shrink-0 overflow-hidden rounded-lg border border-border bg-card md:w-72',
+          showContent && 'hidden md:block'
+        )}>
           <div className="border-b border-border p-3">
             <h2 className="flex items-center gap-2 font-semibold">
               <BookOpen className="h-5 w-5" />
               Obsah
             </h2>
           </div>
-          <ScrollArea className="h-[calc(100%-3.5rem)]">
+          <ScrollArea className="max-h-[calc(100vh-16rem)]">
             <div className="p-2">
               {filteredStructure.map(chapter => (
                 <Collapsible 
@@ -131,7 +150,7 @@ export default function ManualPage() {
                   open={expandedChapters.includes(chapter.id)}
                   onOpenChange={() => toggleChapter(chapter.id)}
                 >
-                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-muted">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-muted min-h-[44px]">
                     {chapter.title}
                     <ChevronDown className={cn(
                       'h-4 w-4 transition-transform',
@@ -145,11 +164,11 @@ export default function ManualPage() {
                           key={section.id}
                           onClick={() => setSelectedSection(section.id)}
                           className={cn(
-                            'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted',
+                            'flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm transition-colors hover:bg-muted min-h-[44px]',
                             selectedSection === section.id && 'bg-primary/10 text-primary font-medium'
                           )}
                         >
-                          <ChevronRight className="h-3 w-3" />
+                          <ChevronRight className="h-3 w-3 shrink-0" />
                           {section.title}
                         </button>
                       ))}
@@ -161,15 +180,18 @@ export default function ManualPage() {
           </ScrollArea>
         </div>
 
-        {/* Content area */}
-        <div className="flex-1 overflow-hidden rounded-lg border border-border bg-card">
-          <ScrollArea className="h-full" ref={contentRef}>
-            <div className="p-6">
+        {/* Content area - full width on mobile */}
+        <div className={cn(
+          'flex-1 overflow-hidden rounded-lg border border-border bg-card',
+          !showContent && 'hidden md:block'
+        )}>
+          <ScrollArea className="max-h-[calc(100vh-16rem)]" ref={contentRef}>
+            <div className="p-4 md:p-6">
               {selectedContent ? (
                 <>
-                  <h1 className="mb-4 text-2xl font-bold">{selectedContent.title}</h1>
+                  <h1 className="mb-4 text-xl md:text-2xl font-bold">{selectedContent.title}</h1>
                   <div className="prose prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed text-foreground">
+                    <pre className="whitespace-pre-wrap font-sans text-sm md:text-base leading-relaxed text-foreground">
                       {selectedContent.content}
                     </pre>
                   </div>
