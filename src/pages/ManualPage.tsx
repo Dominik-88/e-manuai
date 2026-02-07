@@ -1,12 +1,38 @@
-import React, { useState } from 'react';
-import { Search, ChevronRight, BookOpen, ChevronDown, ArrowLeft } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import {
+  Search, ChevronRight, BookOpen, ChevronDown, ArrowLeft,
+  Fuel, Satellite, Shield, Gamepad2, Cpu, Wrench, Navigation, Lock, X,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// Manual structure based on authentic Barbieri documentation
+const chapterIcons: Record<string, React.ReactNode> = {
+  priprava: <Fuel className="h-4 w-4" />,
+  ovladani: <Gamepad2 className="h-4 w-4" />,
+  specifikace: <Cpu className="h-4 w-4" />,
+  udrzba: <Wrench className="h-4 w-4" />,
+  rtk: <Navigation className="h-4 w-4" />,
+  bezpecnost: <Lock className="h-4 w-4" />,
+};
+
+const chapterColors: Record<string, string> = {
+  priprava: 'text-warning',
+  ovladani: 'text-primary',
+  specifikace: 'text-info',
+  udrzba: 'text-destructive',
+  rtk: 'text-success',
+  bezpecnost: 'text-warning',
+};
+
+interface Section {
+  id: string;
+  title: string;
+  content: string;
+}
+
 const manualStructure = [
   {
     id: 'priprava',
@@ -63,113 +89,217 @@ const manualStructure = [
   },
 ];
 
+function highlightText(text: string, query: string) {
+  if (!query) return text;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part) ? <mark key={i} className="rounded bg-primary/30 px-0.5 text-foreground">{part}</mark> : part
+  );
+}
+
+function renderContent(content: string, query: string) {
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-2">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="h-2" />;
+
+        // Bullet/list items
+        if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('✓')) {
+          const bullet = trimmed[0];
+          const text = trimmed.slice(1).trim();
+          return (
+            <div key={i} className="flex items-start gap-2 pl-2">
+              <span className={cn('mt-0.5 shrink-0 text-sm', bullet === '✓' ? 'text-success' : 'text-muted-foreground')}>{bullet}</span>
+              <span className="text-sm leading-relaxed">{highlightText(text, query)}</span>
+            </div>
+          );
+        }
+
+        // Numbered items
+        if (/^\d+\./.test(trimmed)) {
+          return (
+            <div key={i} className="flex items-start gap-2 pl-2">
+              <span className="mt-0.5 shrink-0 font-mono text-xs font-bold text-primary">{trimmed.match(/^\d+\./)?.[0]}</span>
+              <span className="text-sm leading-relaxed">{highlightText(trimmed.replace(/^\d+\.\s*/, ''), query)}</span>
+            </div>
+          );
+        }
+
+        // Key-value
+        if (trimmed.includes(':') && trimmed.indexOf(':') < 30) {
+          const [key, ...rest] = trimmed.split(':');
+          const value = rest.join(':').trim();
+          if (value) {
+            return (
+              <div key={i} className="flex flex-wrap gap-1 pl-2 text-sm">
+                <span className="font-medium text-muted-foreground">{highlightText(key, query)}:</span>
+                <span className="font-mono text-foreground">{highlightText(value, query)}</span>
+              </div>
+            );
+          }
+        }
+
+        // Warning
+        if (trimmed.startsWith('POZOR') || trimmed.includes('⚠️')) {
+          return (
+            <div key={i} className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+              {highlightText(trimmed, query)}
+            </div>
+          );
+        }
+
+        // Header-like
+        if (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.includes(':')) {
+          return (
+            <h3 key={i} className="pt-2 text-sm font-bold uppercase tracking-wider text-primary">
+              {highlightText(trimmed, query)}
+            </h3>
+          );
+        }
+
+        return (
+          <p key={i} className="text-sm leading-relaxed">
+            {highlightText(trimmed, query)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ManualPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedChapters, setExpandedChapters] = useState<string[]>(['priprava']);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
-  const contentRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (selectedSection && contentRef.current) {
-      contentRef.current.scrollTo(0, 0);
-    }
-    window.scrollTo(0, 0);
-  }, [selectedSection]);
 
   const toggleChapter = (chapterId: string) => {
-    setExpandedChapters(prev => 
-      prev.includes(chapterId)
-        ? prev.filter(id => id !== chapterId)
-        : [...prev, chapterId]
+    setExpandedChapters(prev =>
+      prev.includes(chapterId) ? prev.filter(id => id !== chapterId) : [...prev, chapterId]
     );
   };
 
-  const filteredStructure = manualStructure.map(chapter => ({
-    ...chapter,
-    sections: chapter.sections.filter(section =>
-      section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      section.content.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-  })).filter(chapter => 
-    chapter.sections.length > 0 ||
-    chapter.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStructure = useMemo(() =>
+    manualStructure.map(chapter => ({
+      ...chapter,
+      sections: chapter.sections.filter(section =>
+        section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        section.content.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    })).filter(chapter =>
+      chapter.sections.length > 0 ||
+      chapter.title.toLowerCase().includes(searchQuery.toLowerCase())
+    ), [searchQuery]);
 
   const selectedContent = manualStructure
     .flatMap(ch => ch.sections)
     .find(s => s.id === selectedSection);
 
-  // Mobile: show content directly, hide TOC when section selected
+  const selectedChapter = manualStructure.find(ch =>
+    ch.sections.some(s => s.id === selectedSection)
+  );
+
   const showContent = selectedSection && selectedContent;
 
   return (
     <div className="space-y-4">
-      {/* Search bar */}
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
+          <BookOpen className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">Technický manuál</h1>
+          <p className="text-xs text-muted-foreground">Barbieri XRot 95 EVO — provozní dokumentace</p>
+        </div>
+      </div>
+
+      {/* Breadcrumb */}
+      {showContent && selectedChapter && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <button onClick={() => setSelectedSection(null)} className="hover:text-foreground transition-colors">Obsah</button>
+          <ChevronRight className="h-3 w-3" />
+          <button onClick={() => setSelectedSection(null)} className="hover:text-foreground transition-colors">{selectedChapter.title}</button>
+          <ChevronRight className="h-3 w-3" />
+          <span className="text-foreground font-medium">{selectedContent.title}</span>
+        </div>
+      )}
+
+      {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Vyhledávání v manuálu..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-14 pl-10 text-base"
+          className="h-12 pl-10 text-sm"
         />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
-      {/* Mobile: Back button when viewing content */}
+      {/* Mobile: Back button */}
       {showContent && (
         <div className="md:hidden">
-          <Button 
-            variant="ghost" 
-            onClick={() => setSelectedSection(null)}
-            className="h-12 gap-2"
-          >
-            <ArrowLeft className="h-5 w-5" />
+          <Button variant="ghost" onClick={() => setSelectedSection(null)} className="h-11 gap-2 text-sm">
+            <ArrowLeft className="h-4 w-4" />
             Zpět na obsah
           </Button>
         </div>
       )}
 
       <div className="flex gap-4">
-        {/* Table of contents - hidden on mobile when content shown */}
+        {/* TOC */}
         <div className={cn(
-          'w-full shrink-0 overflow-hidden rounded-lg border border-border bg-card md:w-72',
+          'w-full shrink-0 overflow-hidden rounded-xl border border-border bg-card md:w-72',
           showContent && 'hidden md:block'
         )}>
-          <div className="border-b border-border p-3">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <BookOpen className="h-5 w-5" />
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <BookOpen className="h-4 w-4" />
               Obsah
             </h2>
           </div>
-          <ScrollArea className="max-h-[calc(100vh-16rem)]">
+          <ScrollArea className="max-h-[calc(100dvh-18rem)]">
             <div className="p-2">
               {filteredStructure.map(chapter => (
-                <Collapsible 
+                <Collapsible
                   key={chapter.id}
                   open={expandedChapters.includes(chapter.id)}
                   onOpenChange={() => toggleChapter(chapter.id)}
                 >
-                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-muted min-h-[44px]">
-                    {chapter.title}
+                  <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-muted min-h-[44px]">
+                    <span className={cn('shrink-0', chapterColors[chapter.id])}>
+                      {chapterIcons[chapter.id]}
+                    </span>
+                    <span className="flex-1">{chapter.title}</span>
                     <ChevronDown className={cn(
-                      'h-4 w-4 transition-transform',
+                      'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
                       expandedChapters.includes(chapter.id) && 'rotate-180'
                     )} />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="ml-2 space-y-1 border-l border-border pl-3">
+                    <div className="ml-4 space-y-0.5 border-l-2 border-border pl-3">
                       {chapter.sections.map(section => (
                         <button
                           key={section.id}
-                          onClick={() => setSelectedSection(section.id)}
+                          onClick={() => {
+                            setSelectedSection(section.id);
+                            window.scrollTo(0, 0);
+                          }}
                           className={cn(
-                            'flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm transition-colors hover:bg-muted min-h-[44px]',
-                            selectedSection === section.id && 'bg-primary/10 text-primary font-medium'
+                            'flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-muted min-h-[40px]',
+                            selectedSection === section.id && 'bg-primary/10 text-primary font-medium border-l-2 border-primary -ml-[3px] pl-[11px]'
                           )}
                         >
                           <ChevronRight className="h-3 w-3 shrink-0" />
-                          {section.title}
+                          <span className="line-clamp-1">{section.title}</span>
                         </button>
                       ))}
                     </div>
@@ -180,29 +310,32 @@ export default function ManualPage() {
           </ScrollArea>
         </div>
 
-        {/* Content area - full width on mobile */}
+        {/* Content */}
         <div className={cn(
-          'flex-1 overflow-hidden rounded-lg border border-border bg-card',
+          'flex-1 overflow-hidden rounded-xl border border-border bg-card',
           !showContent && 'hidden md:block'
         )}>
-          <ScrollArea className="max-h-[calc(100vh-16rem)]" ref={contentRef}>
+          <ScrollArea className="max-h-[calc(100dvh-18rem)]">
             <div className="p-4 md:p-6">
               {selectedContent ? (
                 <>
-                  <h1 className="mb-4 text-xl md:text-2xl font-bold">{selectedContent.title}</h1>
-                  <div className="prose prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap font-sans text-sm md:text-base leading-relaxed text-foreground">
-                      {selectedContent.content}
-                    </pre>
+                  <div className="mb-4 flex items-center gap-3">
+                    {selectedChapter && (
+                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg bg-muted', chapterColors[selectedChapter.id])}>
+                        {chapterIcons[selectedChapter.id]}
+                      </div>
+                    )}
+                    <h1 className="text-lg font-bold md:text-xl">{selectedContent.title}</h1>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    {renderContent(selectedContent.content, searchQuery)}
                   </div>
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <BookOpen className="mb-4 h-16 w-16 text-muted-foreground/30" />
-                  <h2 className="text-xl font-semibold">Technický manuál</h2>
-                  <p className="mt-2 text-muted-foreground">
-                    Vyberte kapitolu z obsahu vlevo
-                  </p>
+                  <BookOpen className="mb-4 h-16 w-16 text-muted-foreground/20" />
+                  <h2 className="text-lg font-semibold">Technický manuál</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">Vyberte kapitolu z obsahu vlevo</p>
                 </div>
               )}
             </div>

@@ -7,6 +7,8 @@ import { createAreaIcon } from './AreaMarkerIcon';
 import { AreaPopupContent } from './AreaPopup';
 import { MapControls } from './MapControls';
 import { RoutePolyline } from './RoutePolyline';
+import { MarkerClusterGroup } from './MarkerClusterGroup';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 // Fix default marker icons for Leaflet + bundler
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -69,6 +71,25 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
       .map(a => [a.gps_latitude!, a.gps_longitude!] as [number, number]);
   }, [showRoute, routeAreaIds, areasWithGps]);
 
+  // Build cluster marker data for non-route markers
+  const clusterMarkers = useMemo(() => {
+    return areasWithGps
+      .filter(area => !routeAreaIds.includes(area.id))
+      .map(area => ({
+        id: area.id,
+        position: [area.gps_latitude!, area.gps_longitude!] as [number, number],
+        icon: createAreaIcon(area.typ, false),
+        popupContent: renderToStaticMarkup(
+          <AreaPopupContent
+            area={area}
+            isInRoute={false}
+            onAddToRoute={undefined}
+            onRemoveFromRoute={undefined}
+          />
+        ),
+      }));
+  }, [areasWithGps, routeAreaIds]);
+
   if (areasWithGps.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-muted/30 p-10 text-center">
@@ -78,6 +99,9 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
       </div>
     );
   }
+
+  // Route markers rendered individually (not clustered)
+  const routeAreas = areasWithGps.filter(a => routeAreaIds.includes(a.id));
 
   return (
     <div className={className}>
@@ -100,18 +124,21 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
             <RoutePolyline waypoints={routeWaypoints} />
           )}
 
-          {areasWithGps.map(area => {
+          {/* Clustered non-route markers */}
+          <MarkerClusterGroup markers={clusterMarkers} />
+
+          {/* Route markers (not clustered) */}
+          {routeAreas.map(area => {
             const routeIndex = routeAreaIds.indexOf(area.id);
-            const isInRoute = routeIndex >= 0;
-            const icon = createAreaIcon(area.typ, isInRoute, isInRoute ? routeIndex : undefined);
+            const icon = createAreaIcon(area.typ, true, routeIndex);
             return (
               <Marker key={area.id} position={[area.gps_latitude!, area.gps_longitude!]} icon={icon}>
                 <Popup minWidth={260} maxWidth={320} className="area-popup">
                   <AreaPopupContent
                     area={area}
-                    isInRoute={isInRoute}
-                    onAddToRoute={onToggleRoute ? () => onToggleRoute(area) : undefined}
-                    onRemoveFromRoute={onToggleRoute && isInRoute ? () => onToggleRoute(area) : undefined}
+                    isInRoute={true}
+                    onAddToRoute={undefined}
+                    onRemoveFromRoute={onToggleRoute ? () => onToggleRoute(area) : undefined}
                   />
                 </Popup>
               </Marker>
