@@ -8,6 +8,7 @@ import { AreaPopupContent } from './AreaPopup';
 import { MapControls } from './MapControls';
 import { RoutePolyline } from './RoutePolyline';
 import { MarkerClusterGroup } from './MarkerClusterGroup';
+import { MachineMarker } from './MachineMarker';
 
 // Fix default marker icons for Leaflet + bundler
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -38,6 +39,7 @@ interface AreasMapProps {
   routeAreaIds?: string[];
   onToggleRoute?: (area: Area) => void;
   showRoute?: boolean;
+  showMachinePosition?: boolean;
 }
 
 function ResizeHandler() {
@@ -49,7 +51,7 @@ function ResizeHandler() {
   return null;
 }
 
-export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, showRoute = false }: AreasMapProps) {
+export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, showRoute = false, showMachinePosition = false }: AreasMapProps) {
   const areasWithGps = useMemo(() => areas.filter(a => a.gps_latitude && a.gps_longitude), [areas]);
 
   const centerLat = useMemo(() => {
@@ -157,6 +159,9 @@ export function AreasMap({ areas, className, routeAreaIds = [], onToggleRoute, s
 
           {/* Clustered non-route markers */}
           <MarkerClusterGroup markers={clusterMarkers} />
+
+          {/* Live machine position */}
+          {showMachinePosition && <MachineMarker />}
 
           {/* Route markers (not clustered) */}
           {routeAreas.map(area => {

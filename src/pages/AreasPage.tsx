@@ -246,6 +246,7 @@ export default function AreasPage() {
           routeAreaIds={routeAreaIds}
           onToggleRoute={handleToggleRoute}
           showRoute={routeAreas.length >= 2}
+          showMachinePosition={true}
         />
       )}
 

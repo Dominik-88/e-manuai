@@ -17,7 +17,7 @@ export interface TelemetryData {
   timestamp: Date;
 }
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'stale' | 'error';
 
 type TelemetryListener = (data: TelemetryData) => void;
 type ConnectionListener = (state: ConnectionState) => void;
@@ -64,6 +64,8 @@ export class BarbieriRealtimeClient {
   private connectionListeners: ConnectionListener[] = [];
   private channel: RealtimeChannel | null = null;
   private lastTelemetry: TelemetryData | null = null;
+  private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  private static WATCHDOG_TIMEOUT = 60_000; // 60 seconds
 
   get isConnected(): boolean {
     return this.connectionState === 'connected';
@@ -113,6 +115,7 @@ export class BarbieriRealtimeClient {
               const telemetry = rowToTelemetry(row);
               this.lastTelemetry = telemetry;
               this.telemetryListeners.forEach(l => l(telemetry));
+              this.resetWatchdog();
             }
           }
         )
@@ -132,6 +135,7 @@ export class BarbieriRealtimeClient {
   }
 
   disconnect(): void {
+    this.clearWatchdog();
     if (this.channel) {
       supabase.removeChannel(this.channel);
       this.channel = null;
@@ -169,6 +173,30 @@ export class BarbieriRealtimeClient {
   private setConnectionState(state: ConnectionState): void {
     this.connectionState = state;
     this.connectionListeners.forEach(l => l(state));
+  }
+
+  private resetWatchdog(): void {
+    this.clearWatchdog();
+    // If connected, start watchdog — if no new data in 60s, go stale
+    if (this.connectionState === 'connected' || this.connectionState === 'stale') {
+      // Restore to connected if we were stale
+      if (this.connectionState === 'stale') {
+        this.setConnectionState('connected');
+      }
+      this.watchdogTimer = setTimeout(() => {
+        if (this.connectionState === 'connected') {
+          console.warn('[Barbieri RT] Watchdog: no data for 60s, marking stale');
+          this.setConnectionState('stale');
+        }
+      }, BarbieriRealtimeClient.WATCHDOG_TIMEOUT);
+    }
+  }
+
+  private clearWatchdog(): void {
+    if (this.watchdogTimer) {
+      clearTimeout(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
   }
 }
 

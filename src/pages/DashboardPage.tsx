@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useMachine } from '@/hooks/useMachine';
+import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
 import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
@@ -16,7 +17,23 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, Activity, Cpu } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { machine, loading: machineLoading } = useMachine();
+  const { machine, loading: machineLoading, updateMth } = useMachine();
+  const { telemetry } = useBarbieriiClient();
+  const lastMthSyncRef = useRef<number>(0);
+
+  // Auto-sync MTH from telemetry to stroje table (debounced 30s)
+  useEffect(() => {
+    if (!machine || !telemetry || telemetry.mth <= 0) return;
+    if (telemetry.mth <= machine.aktualni_mth) return;
+    
+    const now = Date.now();
+    if (now - lastMthSyncRef.current < 30_000) return; // 30s debounce
+    
+    lastMthSyncRef.current = now;
+    updateMth(telemetry.mth).catch(err => {
+      console.error('[Dashboard] MTH sync error:', err);
+    });
+  }, [telemetry?.mth, machine?.aktualni_mth, updateMth, machine]);
 
   if (machineLoading) {
     return (

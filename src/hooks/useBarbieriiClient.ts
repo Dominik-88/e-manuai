@@ -24,7 +24,7 @@ export function useBarbieriiClient() {
   return {
     telemetry,
     connectionState,
-    isConnected: connectionState === 'connected',
+    isConnected: connectionState === 'connected' || connectionState === 'stale',
     connect,
     disconnect,
     emergencyStop,
