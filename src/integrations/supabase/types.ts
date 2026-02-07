@@ -214,6 +214,80 @@ export type Database = {
           },
         ]
       }
+      seceni_relace: {
+        Row: {
+          areal_id: string | null
+          created_at: string
+          datum_cas_konec: string | null
+          datum_cas_start: string
+          id: string
+          mth_delta: number | null
+          mth_konec: number | null
+          mth_start: number
+          plocha_posekana_m2: number | null
+          poznamky: string | null
+          prumerna_rychlost_kmh: number | null
+          rezim: string
+          rtk_fix_ratio: number | null
+          s_mode: number | null
+          spotreba_l: number | null
+          stroj_id: string
+          trajektorie_geojson: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          areal_id?: string | null
+          created_at?: string
+          datum_cas_konec?: string | null
+          datum_cas_start?: string
+          id?: string
+          mth_delta?: number | null
+          mth_konec?: number | null
+          mth_start: number
+          plocha_posekana_m2?: number | null
+          poznamky?: string | null
+          prumerna_rychlost_kmh?: number | null
+          rezim?: string
+          rtk_fix_ratio?: number | null
+          s_mode?: number | null
+          spotreba_l?: number | null
+          stroj_id: string
+          trajektorie_geojson?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          areal_id?: string | null
+          created_at?: string
+          datum_cas_konec?: string | null
+          datum_cas_start?: string
+          id?: string
+          mth_delta?: number | null
+          mth_konec?: number | null
+          mth_start?: number
+          plocha_posekana_m2?: number | null
+          poznamky?: string | null
+          prumerna_rychlost_kmh?: number | null
+          rezim?: string
+          rtk_fix_ratio?: number | null
+          s_mode?: number | null
+          spotreba_l?: number | null
+          stroj_id?: string
+          trajektorie_geojson?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seceni_relace_areal_id_fkey"
+            columns: ["areal_id"]
+            isOneToOne: false
+            referencedRelation: "arealy"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       servisni_intervaly: {
         Row: {
           created_at: string

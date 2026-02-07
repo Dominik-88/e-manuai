@@ -6,6 +6,7 @@ import type { ServisniInterval } from '@/types/database';
 import { SERVICE_THRESHOLDS } from '@/types/database';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, CheckCircle, Clock, AlertCircle, ArrowRight } from 'lucide-react';
+import { hapticFeedback } from '@/hooks/useSunGlare';
 
 interface ServiceIntervalsOverviewProps {
   machineId: string;
@@ -99,6 +100,13 @@ export function ServiceIntervalsOverview({ machineId, currentMth }: ServiceInter
     warning: intervalsWithStatus.filter(i => i.status === 'warning').length,
     critical: intervalsWithStatus.filter(i => i.status === 'critical').length,
   };
+
+  // Haptic feedback when critical intervals exist
+  React.useEffect(() => {
+    if (summary.critical > 0) {
+      hapticFeedback('critical');
+    }
+  }, [summary.critical]);
 
   const statusConfig = {
     ok: {
