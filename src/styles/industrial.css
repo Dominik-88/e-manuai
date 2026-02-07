@@ -86,7 +86,11 @@
 .leaflet-popup-close-button:hover { color: hsl(var(--foreground)) !important; }
 
 /* Custom markers */
-.custom-area-marker, .custom-stop-marker, .custom-cluster-marker { background: none !important; border: none !important; }
+.custom-area-marker, .custom-stop-marker, .custom-cluster-marker {
+  background: none !important;
+  border: none !important;
+  touch-action: manipulation;
+}
 
 /* Section heading style */
 .section-heading { @apply flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground; }
