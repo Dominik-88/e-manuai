@@ -111,6 +111,18 @@ export default function NewServicePage() {
       return;
     }
 
+    // Runtime MTH validation: must not decrease
+    if (data.mth_pri_servisu < machine.aktualni_mth * 0.9) {
+      toast.error(`MTH nesmí výrazně klesnout pod aktuální hodnotu (${machine.aktualni_mth.toFixed(1)} h)`);
+      return;
+    }
+
+    // Runtime date validation: must not be in the future
+    if (new Date(data.datum_servisu) > new Date()) {
+      toast.error('Datum servisu nesmí být v budoucnosti');
+      return;
+    }
+
     setSubmitting(true);
 
     try {

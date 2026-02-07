@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { saveMthUpdate } from '@/lib/offline-queue';
 import type { Stroj } from '@/types/database';
 
 export function useMachine() {
@@ -41,17 +42,19 @@ export function useMachine() {
   const updateMth = async (newMth: number) => {
     if (!machine) return;
 
+    // Validation: MTH must not decrease
+    if (newMth < machine.aktualni_mth) {
+      throw new Error(`MTH nesmí klesnout pod ${machine.aktualni_mth}`);
+    }
+
     try {
-      const { error: updateError } = await supabase
-        .from('stroje')
-        .update({ 
-          aktualni_mth: newMth,
-          datum_posledni_aktualizace_mth: new Date().toISOString()
-        })
-        .eq('id', machine.id);
+      const result = await saveMthUpdate(machine.id, newMth);
+      
+      if (result.offline) {
+        console.log('[Machine] MTH update queued for offline sync');
+      }
 
-      if (updateError) throw updateError;
-
+      // Update local state immediately
       setMachine(prev => prev ? { 
         ...prev, 
         aktualni_mth: newMth,

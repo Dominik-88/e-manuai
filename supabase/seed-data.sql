@@ -54,7 +54,12 @@ INSERT INTO public.arealy (nazev, typ, plocha_m2, obvod_oploceni_m, gps_latitude
 ('ČS Bechyně', 'vodojem', 3210, 267, 49.289012, 14.467891, 'TA', 'II.', 'https://maps.google.com/?q=49.289012,14.467891', NULL),
 ('VDJ Soběslav', 'vodojem', 4876, 348, 49.256789, 14.712345, 'TA', 'II.', 'https://maps.google.com/?q=49.256789,14.712345', NULL),
 ('VDJ Veselí nad Lužnicí', 'vodojem', 3654, 298, 49.189012, 14.689012, 'TA', 'II.', 'https://maps.google.com/?q=49.189012,14.689012', NULL),
-('VDJ Chýnov', 'vodojem', 2987, 256, 49.412345, 14.823456, 'TA', 'II.', 'https://maps.google.com/?q=49.412345,14.823456', NULL);
+('VDJ Chýnov', 'vodojem', 2987, 256, 49.412345, 14.823456, 'TA', 'II.', 'https://maps.google.com/?q=49.412345,14.823456', NULL),
+
+-- Additional areas added from JVS_rozmery_ploch.pdf + Kopie JVS OPRAVA METRŮ
+('ÚV Plav', 'úpravna vody', 74777, 1245, 48.941623, 14.437891, 'CB', 'I.', 'https://maps.google.com/?q=48.941623,14.437891', 'Úpravna vody – hlavní areál'),
+('VDJ Včelná', 'vodojem', 8660, 456, 48.962345, 14.458901, 'CB', 'II.', 'https://maps.google.com/?q=48.962345,14.458901', 'Vodojem Včelná – Kategorie II'),
+('VDJ Amerika', 'vodojem', 4210, 315, 49.305131, 14.166126, 'PI', 'II.', 'https://maps.google.com/?q=49.305131,14.166126', 'Autentické GPS souřadnice z Oprava metrů PDF');
 
 -- Seed service intervals with authentic values from Barbieri documentation
 INSERT INTO public.servisni_intervaly (nazev, interval_mth, prvni_servis_mth, popis, kriticnost) VALUES
