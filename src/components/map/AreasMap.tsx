@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, Ruler, Fence, ExternalLink } from 'lucide-react';
@@ -47,6 +47,16 @@ const typIcons: Record<string, string> = {
   jiné: '📍',
 };
 
+// Fix tiles not rendering when map container was initially hidden
+function ResizeHandler() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
+
 export function AreasMap({ areas, className }: AreasMapProps) {
   const areasWithGps = areas.filter(a => a.gps_latitude && a.gps_longitude);
 
@@ -86,6 +96,7 @@ export function AreasMap({ areas, className }: AreasMapProps) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <ResizeHandler />
         {areasWithGps.map(area => (
           <Marker
             key={area.id}
