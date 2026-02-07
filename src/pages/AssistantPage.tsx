@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,11 +12,10 @@ interface Message {
   content: string;
 }
 
-export default function AssistantPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: `Dobrý den! 👋 Jsem AI asistent specializovaný na stroj **Barbieri XRot 95 EVO**.
+const STORAGE_KEY = 'emanuai-chat-history';
+const DEFAULT_MESSAGE: Message = {
+  role: 'assistant',
+  content: `Dobrý den! 👋 Jsem AI asistent specializovaný na stroj **Barbieri XRot 95 EVO**.
 
 Mohu vám pomoci s:
 - 🔧 Servisními dotazy a intervaly
@@ -26,14 +25,32 @@ Mohu vám pomoci s:
 - ❓ Řešením problémů
 
 Na co se chcete zeptat?`
-    }
-  ]);
+};
+
+export default function AssistantPage() {
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [DEFAULT_MESSAGE];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { profile } = useAuth();
   const { machine } = useMachine();
+
+  // Persist messages to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {}
+  }, [messages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -144,6 +161,11 @@ Na co se chcete zeptat?`
     }
   };
 
+  const clearChat = () => {
+    setMessages([DEFAULT_MESSAGE]);
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -153,6 +175,19 @@ Na co se chcete zeptat?`
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col">
+      {/* Header with clear */}
+      {messages.length > 1 && (
+        <div className="flex justify-end px-1 pb-2">
+          <button
+            onClick={clearChat}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+            aria-label="Vymazat historii chatu"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Vymazat chat
+          </button>
+        </div>
+      )}
       {/* Messages */}
       <ScrollArea className="flex-1 px-1" ref={scrollRef}>
         <div className="space-y-4 py-4">
