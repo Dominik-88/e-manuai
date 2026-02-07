@@ -62,14 +62,33 @@ ${services.length > 0
 DOSTUPNÉ AREÁLY (${areas.length}):
 ${areas.map(a => `${a.nazev} (${a.okres}): ${a.plocha_m2 || '?'}m², GPS: ${a.gps_latitude?.toFixed(5)},${a.gps_longitude?.toFixed(5)}`).join('\n')}
 
-TECHNICKÉ SPECIFIKACE:
-- Compass Servo Drive 2.0 (R54)
+TECHNICKÉ SPECIFIKACE BARBIERI XROT 95 EVO:
+- Motor: Kawasaki FS730V EFI (2-válec, 726 cm³, 26 HP)
+- Compass Servo Drive: 2.0 (R54)
 - Procesor: Broadcom BCM2837 @ 1.4GHz, 1GB RAM
 - GNSS: u-blox ZED-F9P (GPS, GLONASS, BEIDOU, Galileo)
-- RTK přesnost: 1-3cm (FIX režim)
+- RTK přesnost: 1-3cm (FIX režim), ~1m (FLOAT režim)
 - Šířka záběru: 95 cm
+- Teoretická kapacita: až 4000 m²/h (reálná ~3000 m²/h, koeficient 0.75)
 - Palivo: bezolovnatý benzín 95 oktanů (max E10)
+- Objem nádrže: 2x 10 litrů = 20l celkem
+- Spotřeba: 3.5-4.5 l/h dle zatížení
+- Dojezd: 4-5 hodin na jednu nádrž
+- Svahová dostupnost: 45° (krátkodobě 50°)
 - Dashboard: http://192.168.4.1:5000
-- NTRIP: rtk.cuzk.cz:2101, mountpoint MAX3
+- NTRIP server: rtk.cuzk.cz:2101, mountpoint MAX3
+- CZEPOS administrace: https://czepos.cuzk.cz (vyžaduje BankID)
+
+AUTONOMNÍ REŽIMY (S-Modes):
+- S-Mode 1: Bod-do-bodu (Point to Point) - Přesun
+- S-Mode 2: Spirála (Spiral Cut) - Kruhové plochy
+- S-Mode 3: Obdélník (Rectangle) - Pravidelné plochy
+- S-Mode 4: Auto-pruhy 95cm (Auto-Stripes) - Vinice/FVE
+
+SERVISNÍ ALGORITMUS (Hard Rules):
+- Výměna oleje: První po 50 mth (záběh), pak každých 100 mth
+- Kontrola nožů: Každých 50 mth
+- Velký servis: Každých 500 mth
+- Semafor: 🟢 OK (>20 mth), 🟠 Pozor (≤20 mth), 🔴 Kritické (≤0 mth)
 `.trim();
 }
