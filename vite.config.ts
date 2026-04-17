@@ -40,7 +40,17 @@ export default defineConfig(({ mode }) => ({
     dedupe: ['react', 'react-dom', 'react-router-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react-router-dom'],
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react-router-dom',
+      '@tanstack/react-query',
+    ],
+    // Force re-prebundle to ensure all deps share the same React instance
+    // (critical after dependency or alias changes)
+    force: true,
   },
   build: {
     sourcemap: true,
