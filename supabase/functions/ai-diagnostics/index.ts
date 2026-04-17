@@ -68,6 +68,29 @@ serve(async (req) => {
       });
     }
 
+    // --- SIZE LIMIT: ~5 MB raw base64 (~6.7M chars) ---
+    const MAX_B64_CHARS = 7_000_000;
+    if (imageBase64.length > MAX_B64_CHARS) {
+      return new Response(JSON.stringify({ error: "Obrázek je příliš velký (max 5 MB)." }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- BASE64 FORMAT VALIDATION ---
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
+      return new Response(JSON.stringify({ error: "Neplatný formát base64." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- MIME TYPE ALLOWLIST ---
+    const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
+    const safeMime = typeof mimeType === "string" && ALLOWED_MIME.includes(mimeType)
+      ? mimeType
+      : "image/jpeg";
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
