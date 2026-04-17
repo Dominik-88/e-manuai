@@ -1,66 +1,84 @@
 
-# Plan: UX & accessibility quick wins from audit
+# Plan: Production hardening — Live data states, dashboard CRO, PWA robustness
 
-Focusing on the highest-impact items that match our existing architecture. Skipping items that conflict with prior decisions (FAB stays — already memory'd as primary entry point) or are out of scope (SVG sprite refactor, lazy-loading vendor chunks).
+Audit požadavků vs. aktuální stav. Většina kritických bodů (#2.1, #2.2, #4.1) už **byla implementována** v předchozím loopu. Tento plán pokrývá jen **skutečnou novou práci**.
 
-## 1. Fix AI Diagnostics camera/gallery (CRITICAL — accessibility + iOS Safari reliability)
+## Co je už hotovo (skip)
 
-In `src/components/diagnostics/AIDiagnostics.tsx`, replace the `<button>` + hidden `<input ref>` + synthetic `.click()` pattern with native `<label htmlFor>` + `sr-only` input. This is the audit's #1 critical issue and a real iOS Safari risk for camera permission gating.
+| Požadavek | Stav |
+|---|---|
+| 2.1 AI Diagnostika `<label htmlFor>` + `capture="environment"` | Hotovo |
+| 2.2 Duplicitní H1 odstraněn, header brand = `<span>` | Hotovo |
+| 4.1 Slider → 2 velké CTA "Zahájit provoz" / "Zadat servis" | Hotovo |
+| 5.1 Ikony přes `lucide-react` | Už používáno |
+| 5.2 Offline IndexedDB queue pro servisní záznamy | `src/lib/offline-queue.ts` existuje |
 
-- Two inputs with stable IDs: `ai-camera-upload` (capture="environment") and `ai-gallery-upload`.
-- Two `<label>` elements styled exactly like the current buttons (full button styling, `cursor-pointer`, `tabIndex={0}`).
-- Drop the `cameraInputRef` / `galleryInputRef` refs.
-- Keep `handleFile` logic identical.
+## Skutečně k implementaci
 
-## 2. Remove duplicate H1 + author tagline (semantics + above-the-fold space)
+### 1. Live-Ready stavy pro telemetrii (3.1) — HLAVNÍ PRÁCE
 
-In `src/pages/DashboardPage.tsx`: drop the centered `e-ManuAI • by • Dominik Schmied` block entirely. Add a single `<h1 className="sr-only">` for AT.
+V `src/components/dashboard/TelemetryLive.tsx` přidat 3 jasné vizuální stavy řízené `connectionState` z `useBarbieriiClient`:
 
-In `src/components/layout/AppHeader.tsx`: change the header `<h1>e-ManuAI</h1>` to a `<span>` (branding, not a heading).
+- **Connecting** (`connectionState === 'connecting'`): `<Skeleton>` bloky místo hodnot RTK / rychlost / GPS / baterie. Komponent `Skeleton` už existuje (`src/components/ui/skeleton.tsx`).
+- **Waiting / Stale** (`connectionState === 'stale'` nebo `!telemetry`): hodnoty zobrazí `—` + malý badge `Čekám na data ze stroje…` (žlutý outline badge).
+- **Live** (`connectionState === 'connected' && telemetry`): aktuální hodnoty + zelený puls indikátor (už existuje).
 
-## 3. Fix MTH header link affordance
+Pozn.: Counter-animace čísel je nice-to-have, ale přidává závislost (framer-motion / react-countup). **Vynechávám** — místo toho jen krátký 200ms tween na `transition-all` u CSS — udržuje bundle malý, vizuálně postačí.
 
-In `src/components/layout/AppHeader.tsx`: change MTH `<Link to="/">` → `<Link to="/nastaveni">`. Tapping the MTH number should go somewhere meaningful, not reload home.
+### 2. Connection indikátor v hlavičce (3.2)
 
-## 4. Move "Technické specifikace" off the dashboard
+V `src/components/layout/AppHeader.tsx` přidat malý dot vedle `vyrobni_cislo`:
+- Zelená tečka + "Online" pokud `connectionState === 'connected'`
+- Šedá tečka + "Offline" jinak
+- Žlutá tečka + "Stale" pokud `'stale'`
 
-Remove `<MachineStatusCard>` from `DashboardPage.tsx`. Static spec data (CPU, GNSS, working width) doesn't belong on a daily ops dashboard. It already renders inside Settings-relevant context; we'll just stop showing it on home.
+Vyžaduje volat `useBarbieriiClient()` v headeru. Hook už je singleton (`getBarbieriClient()`), takže to nezduplikuje připojení. Přidat pouze sub na `connectionState`.
 
-## 5. Replace "Rychlé akce" slider with 2 large primary CTAs
+### 3. Přesun MachineStatusCard na samostatnou stránku (3.2)
 
-In `src/pages/DashboardPage.tsx`: replace `<QuickActionsCard>` with two big buttons directly under `MthDisplay`:
-- **"Zahájit provoz"** → `/provoz/novy`
-- **"Zadat servis"** → `/servis/novy`
+Vytvořit `src/pages/MachineDetailPage.tsx` na route `/stroj/detaily`:
+- Renderuje `MachineStatusCard` + případně `MthDisplay` v read-only režimu
+- Přidat route do `src/App.tsx` (lazy)
+- Z `SettingsPage` (nebo jiného vhodného místa) přidat odkaz "Technické specifikace stroje →"
 
-Sized for gloved-hand use: `h-16`, `text-base font-bold`, full width grid `grid-cols-2 gap-3`. Keeps FAB for the third action (Nový areál) — no duplication, since the slider goes away.
+`MachineStatusCard` je už z dashboardu odstraněn, takže zde jen tvoříme nové místo, kam patří.
 
-## 6. Bottom nav cleanup
+### 4. FAB UX polish (4.2)
 
-In `src/components/layout/BottomNav.tsx`:
-- Rename `AI` → `Asistent`.
-- Add `aria-current="page"` only on the active link (already correct — verify).
-- Reduce active-state indicators from 4 (bg + underline + scale + bold) to 2 (bg + bold).
+V `src/components/layout/FloatingActionButton.tsx`:
+- Backdrop blur overlay (fixed, `bg-background/40 backdrop-blur-sm`) když `isOpen`
+- Klik na backdrop zavře menu
+- Položky menu: garantovat `min-h-12 min-w-12` (48px touch target)
+- Sekundární tlačítka v menu: zvýšit kontrast (přidat `border-2`)
 
-## 7. Quick polish
+### 5. Service Worker strategie (5.2)
 
-- `MthDisplay.tsx`: bump "Upravit MTH" tap target from `h-8` → `h-11`.
-- `TelemetryLive.tsx` (or wherever `192.168.4.1:5000` link lives): add inline `(vyžaduje WiFi stroje)` hint + `title` tooltip.
+V `public/sw.js` aktualizovat fetch handler:
+- **Stale-While-Revalidate** pro assety (`/assets/*`, `*.js`, `*.css`, `*.woff2`)
+- **Network-First s 3s timeoutem** pro Supabase REST/Realtime requesty (`*.supabase.co/rest/*`, `*.supabase.co/auth/*`)
+- **Cache-First** pro tile mapy a obrázky
+- Bump cache version → `v1.0.2`
+
+Pozn.: SW se v preview iframe stejně neregistruje (logika z předchozího loopu), tohle se uplatní jen v produkci na `e-manuai.lovable.app`.
 
 ## Out of scope (deliberate)
-- **Keep FAB** — memory'd decision, audit's "remove FAB OR slider" is satisfied by removing the slider.
-- SVG sprite refactor (large cross-cutting change, low ROI now).
-- Lazy-loading floating-ui (Radix uses it eagerly; not a clean win).
-- `date-fns` → `Intl.RelativeTimeFormat` (separate pass).
 
-## Files touched
+- **Counter animace čísel** — bundle vs. užitek nepoměr (operátor v terénu nepotřebuje efekty)
+- **MQTT** — projekt používá Supabase Realtime (memory'd jako standard), MQTT vyžaduje broker, který tu není
+- **SVG sprite refactor** — `lucide-react` už dělá tree-shake, sprite by nepřinesl měřitelný zisk
+- **Lighthouse 95+ jako akceptační kritérium** — dáme nejlepší úsilí, ale skóre závisí i na PWA cache headers, které nemůžeme z preview ověřit
+- **Smazat statické MTH/spec hodnoty** — nejsou statické, čtou se z `stroje` tabulky
 
-| File | Change |
+## Soubory
+
+| Soubor | Akce |
 |---|---|
-| `src/components/diagnostics/AIDiagnostics.tsx` | label+input refactor |
-| `src/pages/DashboardPage.tsx` | drop tagline, drop MachineStatusCard, drop QuickActionsCard, add 2 CTAs, sr-only h1 |
-| `src/components/layout/AppHeader.tsx` | h1→span, MTH link → /nastaveni |
-| `src/components/layout/BottomNav.tsx` | label + active-state cleanup |
-| `src/components/dashboard/MthDisplay.tsx` | h-8 → h-11 |
-| `src/components/dashboard/TelemetryLive.tsx` | WiFi-only hint on machine link |
+| `src/components/dashboard/TelemetryLive.tsx` | Přidat 3 stavy: skeleton / waiting / live |
+| `src/components/layout/AppHeader.tsx` | Connection dot vedle vyrobni_cislo |
+| `src/pages/MachineDetailPage.tsx` | **Nový** — read-only spec stránka |
+| `src/App.tsx` | Lazy route `/stroj/detaily` |
+| `src/pages/SettingsPage.tsx` | Odkaz na `/stroj/detaily` |
+| `src/components/layout/FloatingActionButton.tsx` | Backdrop blur + 48px targets |
+| `public/sw.js` | Stale-While-Revalidate + Network-First strategie |
 
-No DB migration. No new dependencies.
+Bez DB migrace. Bez nových závislostí.
