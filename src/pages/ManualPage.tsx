@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Search, ChevronRight, BookOpen, ChevronDown, ArrowLeft,
   Fuel, Satellite, Shield, Gamepad2, Cpu, Wrench, Navigation, Lock, X,
+  FileText, Download, ExternalLink,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -57,7 +58,9 @@ const manualStructure = [
     title: '3. Technické specifikace',
     sections: [
       { id: 'hardware', title: '3.1 Hardware', content: 'Compass Servo Drive 2.0 (R54)\nProcesor: Broadcom BCM2837 (ARM Cortex-A53, 1.4 GHz)\nRAM: 1 GB\nGNSS: u-blox ZED-F9P\nSignály: GPS, GLONASS, BEIDOU, Galileo' },
-      { id: 'komunikace', title: '3.2 Komunikace', content: 'LTE modem s MIMO\nWi-Fi\nBluetooth\n3x CAN-BUS sběrnice\nSériové rozhraní pro GNSS\nIP67 ochrana' },
+      { id: 'motor', title: '3.2 Motor a palivový systém', content: 'Motor: Kawasaki EFI FS730V (gasoline)\nKonstantní výkon, automatické přizpůsobení sklonu\nDvě nádrže: 2× 15 L (celkem 30 L)\nPalivo: Bezolovnatý benzín 95 oktanů (max E10)\nSnímač rezervy je na nádrži č. 1' },
+      { id: 'sekani', title: '3.3 Sečení', content: 'Šířka záběru: 95 cm\nVýška sečení: 5–14 cm (nastavitelné rádiovým ovladačem)\nMulčovací rotující nůž s plovoucím koncem\nMožnost sečení v obou směrech jízdy' },
+      { id: 'komunikace', title: '3.4 Komunikace', content: 'LTE modem s MIMO\nWi-Fi\nBluetooth\n3x CAN-BUS sběrnice\nSériové rozhraní pro GNSS\nIP67 ochrana' },
     ],
   },
   {
@@ -226,6 +229,42 @@ export default function ManualPage() {
           <span className="text-foreground font-medium">{selectedContent.title}</span>
         </div>
       )}
+
+      {/* Official PDF manual */}
+      <div className="dashboard-widget border-2 border-primary/30 bg-primary/5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-semibold">Oficiální manuál výrobce (PDF)</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Kompletní dokumentace Barbieri XRot 95 EVO — bezpečnost, údržba, řešení problémů.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild size="sm" className="h-11 gap-2">
+                <a
+                  href="/manual/Barbieri_XRot_95_EVO.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Otevřít PDF
+                </a>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-11 gap-2">
+                <a
+                  href="/manual/Barbieri_XRot_95_EVO.pdf"
+                  download="Barbieri_XRot_95_EVO.pdf"
+                >
+                  <Download className="h-4 w-4" />
+                  Stáhnout
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Search */}
       <div className="relative">
