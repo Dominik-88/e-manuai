@@ -172,6 +172,8 @@ export async function saveQuickMow(input: {
   savePendingItems(items);
   return { offline: true };
 }
+
+export async function syncPendingRecords(): Promise<{ synced: number; failed: number }> {
   const items = getPendingItems();
   if (items.length === 0) return { synced: 0, failed: 0 };
 
@@ -196,7 +198,12 @@ export async function saveQuickMow(input: {
           .eq('id', machineId);
         if (error) throw error;
       } else {
-        const table = item.type === 'service' ? 'servisni_zaznamy' : 'provozni_zaznamy';
+        const table =
+          item.type === 'service'
+            ? 'servisni_zaznamy'
+            : item.type === 'seceni_quick'
+              ? 'seceni_relace'
+              : 'provozni_zaznamy';
         const { error } = await supabase.from(table).insert(item.data as any);
         if (error) throw error;
       }
