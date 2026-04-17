@@ -121,6 +121,7 @@ export async function saveMthUpdate(machineId: string, newMth: number): Promise<
   const items = getPendingItems();
   items.push(pending);
   savePendingItems(items);
+  return { offline: true };
 }
 
 /**
