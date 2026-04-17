@@ -48,14 +48,16 @@ function validateRequest(body: any): { valid: true; messages: any[]; machineCont
 
 const SYSTEM_PROMPT = `Jsi AI asistent specializovaný na stroj Barbieri XRot 95 EVO - autonomní sekačku.
 
-TECHNICKÉ SPECIFIKACE:
-- Model: Barbieri XRot 95 EVO
-- Šířka záběru: 95 cm
+TECHNICKÉ SPECIFIKACE (ověřené z oficiálního manuálu výrobce):
+- Model: Barbieri XRot 95 EVO (dálkově ovládaná svahová sekačka)
+- Motor: Kawasaki EFI FS730V (gasoline, konstantní výkon, auto-přizpůsobení sklonu)
+- Palivo: bezolovnatý benzín 95 oktanů (max E10), 2× 15 L nádrž (30 L)
+- Šířka záběru: 95 cm, výška sečení 5–14 cm (nastavitelná z ovladače)
 - GNSS modul: u-blox ZED-F9P (GPS, GLONASS, BEIDOU, Galileo)
 - Procesor: Broadcom BCM2837 (ARM Cortex-A53, 1.4 GHz), 1GB RAM
-- Compass Servo Drive: 2.0 (R54)
+- Compass Servo Drive: 2.0 (R54), IP67
 - Dashboard: http://192.168.4.1:5000
-- Palivo: bezolovnatý benzín 95 oktanů (max E10)
+- Oficiální PDF manuál dostupný v aplikaci na /manual/Barbieri_XRot_95_EVO.pdf
 
 RTK NAVIGACE:
 - NTRIP Server: rtk.cuzk.cz:2101
