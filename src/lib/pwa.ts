@@ -1,5 +1,41 @@
 // PWA utilities for e-ManuAI
 
+function isPreviewOrDevHost(hostname: string): boolean {
+  return (
+    hostname.includes('lovableproject.com') ||
+    hostname.includes('id-preview--') ||
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1'
+  );
+}
+
+export function shouldEnableServiceWorker(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !isPreviewOrDevHost(window.location.hostname);
+}
+
+export async function unregisterServiceWorkersAndClearCaches() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith('emanuai-'))
+          .map((name) => caches.delete(name))
+      );
+    }
+
+    console.log('[PWA] Service workers unregistered and caches cleared for preview/dev');
+  } catch (error) {
+    console.error('[PWA] Failed to unregister service workers or clear caches:', error);
+  }
+}
+
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
