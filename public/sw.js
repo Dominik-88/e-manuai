@@ -1,12 +1,16 @@
-// e-ManuAI Service Worker v1.0.1
-// Three-tier caching strategy for offline-first PWA
+// e-ManuAI Service Worker v1.0.2
+// Strategies:
+//  - Stale-While-Revalidate for static build assets (JS/CSS/fonts)
+//  - Network-First (3s timeout) for Supabase REST/Auth/Functions data
+//  - Cache-First for tile maps and images
+//  - Bypass for Vite dev paths
 
-const CACHE_VERSION = 'v1.0.1';
+const CACHE_VERSION = 'v1.0.2';
 const STATIC_CACHE = `emanuai-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `emanuai-dynamic-${CACHE_VERSION}`;
 const DATA_CACHE = `emanuai-data-${CACHE_VERSION}`;
+const TILE_CACHE = `emanuai-tiles-${CACHE_VERSION}`;
 
-// Static assets - cache-first strategy
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -15,11 +19,7 @@ const STATIC_ASSETS = [
   '/icons/icon-512x512.png',
 ];
 
-// API endpoints that should use network-first with fallback
-const API_PATTERNS = [
-  '/functions/v1/ai-assistant',
-  '/rest/v1/',
-];
+const NETWORK_TIMEOUT_MS = 3000;
 
 function shouldBypassCache(url) {
   return (
@@ -30,152 +30,139 @@ function shouldBypassCache(url) {
   );
 }
 
-// Install event - cache static assets
+function isSupabaseDataRequest(url) {
+  return (
+    url.hostname.endsWith('.supabase.co') &&
+    (url.pathname.startsWith('/rest/') ||
+      url.pathname.startsWith('/auth/') ||
+      url.pathname.startsWith('/functions/'))
+  );
+}
+
+function isMapTile(url) {
+  // OSM-style tile servers: a/b/c.tile.openstreetmap.org, *.basemaps.*, etc.
+  return (
+    /tile\./i.test(url.hostname) ||
+    /basemaps/i.test(url.hostname) ||
+    /\/\d+\/\d+\/\d+\.(png|jpg|webp)$/i.test(url.pathname)
+  );
+}
+
+function isImage(url) {
+  return /\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(url.pathname);
+}
+
+function isBuildAsset(url) {
+  return (
+    url.pathname.startsWith('/assets/') ||
+    /\.(js|mjs|css|woff2?)$/i.test(url.pathname)
+  );
+}
+
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      })
+      .then((cache) => cache.addAll(STATIC_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
+  const keep = new Set([STATIC_CACHE, DYNAMIC_CACHE, DATA_CACHE, TILE_CACHE]);
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => {
-            return name.startsWith('emanuai-') && 
-                   name !== STATIC_CACHE && 
-                   name !== DYNAMIC_CACHE && 
-                   name !== DATA_CACHE;
-          })
-          .map((name) => {
-            console.log('[SW] Deleting old cache:', name);
-            return caches.delete(name);
-          })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((names) =>
+      Promise.all(
+        names
+          .filter((n) => n.startsWith('emanuai-') && !keep.has(n))
+          .map((n) => caches.delete(n))
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
-// Fetch event - implement caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method !== 'GET') return;
+
   const url = new URL(request.url);
+  if (!url.protocol.startsWith('http')) return;
+  if (shouldBypassCache(url)) return;
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
+  // Supabase data: network-first with 3s timeout
+  if (isSupabaseDataRequest(url)) {
+    event.respondWith(networkFirstWithTimeout(request, DATA_CACHE));
     return;
   }
 
-  // Skip chrome-extension and other non-http requests
-  if (!url.protocol.startsWith('http')) {
+  // Tile maps + images: cache-first
+  if (isMapTile(url) || isImage(url)) {
+    event.respondWith(cacheFirst(request, isMapTile(url) ? TILE_CACHE : STATIC_CACHE));
     return;
   }
 
-  // Never cache Vite dev/preview modules or versioned chunk requests
-  if (shouldBypassCache(url)) {
+  // Build assets: stale-while-revalidate
+  if (isBuildAsset(url)) {
+    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
     return;
   }
 
-  // API requests - network-first with fallback
-  if (API_PATTERNS.some(pattern => url.pathname.includes(pattern))) {
-    event.respondWith(networkFirstWithFallback(request));
-    return;
-  }
-
-  // Static assets and app shell - cache-first
-  if (isStaticAsset(url)) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // Everything else - stale-while-revalidate
-  event.respondWith(staleWhileRevalidate(request));
+  // App shell / navigations: stale-while-revalidate via dynamic cache
+  event.respondWith(staleWhileRevalidate(request, DYNAMIC_CACHE));
 });
 
-// Cache-first strategy for static assets
-async function cacheFirst(request) {
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-
+async function cacheFirst(request, cacheName) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
   try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(STATIC_CACHE);
-      cache.put(request, networkResponse.clone());
+    const res = await fetch(request);
+    if (res.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, res.clone());
     }
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Network failed for static asset:', request.url);
-    return new Response('Offline - asset not cached', { status: 503 });
-  }
-}
-
-// Network-first with fallback for API calls
-async function networkFirstWithFallback(request) {
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(DATA_CACHE);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Network failed, checking cache for:', request.url);
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    // Return offline fallback for AI requests
-    if (request.url.includes('ai-assistant')) {
-      return new Response(JSON.stringify({
-        error: 'offline',
-        message: 'Jste offline. AI asistent vyžaduje připojení k internetu.'
-      }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    
+    return res;
+  } catch {
     return new Response('Offline', { status: 503 });
   }
 }
 
-// Stale-while-revalidate for dynamic content
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(DYNAMIC_CACHE);
-  const cachedResponse = await cache.match(request);
-
-  const fetchPromise = fetch(request).then((networkResponse) => {
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
+async function networkFirstWithTimeout(request, cacheName) {
+  try {
+    const res = await Promise.race([
+      fetch(request),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), NETWORK_TIMEOUT_MS)
+      ),
+    ]);
+    if (res && res.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, res.clone());
     }
-    return networkResponse;
-  }).catch(() => cachedResponse);
-
-  return cachedResponse || fetchPromise;
+    return res;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (request.url.includes('ai-assistant')) {
+      return new Response(
+        JSON.stringify({ error: 'offline', message: 'Jste offline. AI asistent vyžaduje připojení.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return new Response('Offline', { status: 503 });
+  }
 }
 
-// Check if URL is a static asset
-function isStaticAsset(url) {
-  const staticExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2', '.ico'];
-  return staticExtensions.some(ext => url.pathname.endsWith(ext)) ||
-         url.pathname === '/' ||
-         url.pathname === '/index.html';
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const fetchPromise = fetch(request)
+    .then((res) => {
+      if (res && res.ok) cache.put(request, res.clone());
+      return res;
+    })
+    .catch(() => cached);
+  return cached || fetchPromise;
 }
 
-// Handle background sync for offline data
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-service-records') {
     event.waitUntil(syncServiceRecords());
@@ -183,33 +170,23 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncServiceRecords() {
-  // This would sync offline-created service records when back online
   console.log('[SW] Syncing service records...');
-  // Implementation would read from IndexedDB queue and POST to Supabase
 }
 
-// Handle push notifications (for future use)
 self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-72x72.png',
-      vibrate: [100, 50, 100],
-      data: {
-        url: data.url || '/'
-      }
-    };
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  }
+  if (!event.data) return;
+  const data = event.data.json();
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    vibrate: [100, 50, 100],
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(
-    clients.openWindow(event.notification.data.url)
-  );
+  event.waitUntil(clients.openWindow(event.notification.data.url));
 });

@@ -20,6 +20,7 @@ const AreasPage = lazy(() => import("@/pages/AreasPage"));
 const NewAreaPage = lazy(() => import("@/pages/NewAreaPage"));
 const NewOperationPage = lazy(() => import("@/pages/NewOperationPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const MachineDetailPage = lazy(() => import("@/pages/MachineDetailPage"));
 const AssistantPage = lazy(() => import("@/pages/AssistantPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -68,6 +69,7 @@ const App = () => (
                 <Route path="/arealy/:id" element={<AreasPage />} />
                 <Route path="/provoz/novy" element={<NewOperationPage />} />
                 <Route path="/nastaveni" element={<SettingsPage />} />
+                <Route path="/stroj/detaily" element={<MachineDetailPage />} />
                 <Route path="/asistent" element={<AssistantPage />} />
               </Route>
 

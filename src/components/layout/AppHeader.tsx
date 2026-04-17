@@ -4,6 +4,8 @@ import { Settings, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
+import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
+import { cn } from '@/lib/utils';
 import { OfflineIndicator } from './OfflineIndicator';
 import { NotificationCenter } from './NotificationCenter';
 import {
@@ -18,6 +20,16 @@ import { Badge } from '@/components/ui/badge';
 export function AppHeader() {
   const { user, profile, role, signOut } = useAuth();
   const { machine, loading } = useMachine();
+  const { connectionState } = useBarbieriiClient();
+
+  const connDot =
+    connectionState === 'connected'
+      ? { cls: 'bg-success', label: 'Online' }
+      : connectionState === 'stale'
+      ? { cls: 'bg-warning', label: 'Stale' }
+      : connectionState === 'connecting'
+      ? { cls: 'bg-muted-foreground animate-pulse', label: 'Připojování…' }
+      : { cls: 'bg-muted-foreground/50', label: 'Offline' };
 
   return (
     <header
@@ -38,7 +50,14 @@ export function AppHeader() {
             <div className="hidden sm:block">
               <span className="block text-sm font-semibold leading-none">e-ManuAI</span>
               {!loading && machine && (
-                <p className="text-xs text-muted-foreground">{machine.vyrobni_cislo}</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span
+                    className={cn('inline-block h-2 w-2 rounded-full', connDot.cls)}
+                    aria-label={connDot.label}
+                    title={`Stroj: ${connDot.label}`}
+                  />
+                  {machine.vyrobni_cislo}
+                </p>
               )}
             </div>
           </Link>
