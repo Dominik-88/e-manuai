@@ -1,114 +1,66 @@
 
+# Plan: UX & accessibility quick wins from audit
 
-# Rozsiření telemetrie: RLS audit, mapa, offline watchdog, servis logika, PLC simulátor
+Focusing on the highest-impact items that match our existing architecture. Skipping items that conflict with prior decisions (FAB stays — already memory'd as primary entry point) or are out of scope (SVG sprite refactor, lazy-loading vendor chunks).
 
-## Přehled
+## 1. Fix AI Diagnostics camera/gallery (CRITICAL — accessibility + iOS Safari reliability)
 
-Pět vylepšení nad existující Supabase Realtime telemetrií, seřazených podle priority.
+In `src/components/diagnostics/AIDiagnostics.tsx`, replace the `<button>` + hidden `<input ref>` + synthetic `.click()` pattern with native `<label htmlFor>` + `sr-only` input. This is the audit's #1 critical issue and a real iOS Safari risk for camera permission gating.
 
----
+- Two inputs with stable IDs: `ai-camera-upload` (capture="environment") and `ai-gallery-upload`.
+- Two `<label>` elements styled exactly like the current buttons (full button styling, `cursor-pointer`, `tabIndex={0}`).
+- Drop the `cameraInputRef` / `galleryInputRef` refs.
+- Keep `handleFile` logic identical.
 
-## 1. RLS audit pro telemetrie_stroje
+## 2. Remove duplicate H1 + author tagline (semantics + above-the-fold space)
 
-**Aktuální stav**: Tabulka má dvě politiky:
-- `SELECT` pro authenticated (`USING (true)`) -- OK, Realtime funguje
-- `ALL` pro service_role (`USING (true)`) -- OK, ingest edge function zapisuje přes service_role
+In `src/pages/DashboardPage.tsx`: drop the centered `e-ManuAI • by • Dominik Schmied` block entirely. Add a single `<h1 className="sr-only">` for AT.
 
-**Riziko**: RLS policy pro service_role je `RESTRICTIVE` (ne PERMISSIVE). To je v pořádku, protože service_role obchází RLS ve výchozím nastavení.
+In `src/components/layout/AppHeader.tsx`: change the header `<h1>e-ManuAI</h1>` to a `<span>` (branding, not a heading).
 
-**Akce**: Žádná změna není nutná. Politiky jsou správně nastavené. Ověříme to v rámci implementace přidáním logu do konzole při subscribe.
+## 3. Fix MTH header link affordance
 
----
+In `src/components/layout/AppHeader.tsx`: change MTH `<Link to="/">` → `<Link to="/nastaveni">`. Tapping the MTH number should go somewhere meaningful, not reload home.
 
-## 2. Napojení telemetrie na mapu (živý bod stroje)
+## 4. Move "Technické specifikace" off the dashboard
 
-Na stránce Areály se na mapě zobrazí aktuální poloha stroje jako pulzující modrý bod (pokud telemetrie obsahuje GPS souřadnice).
+Remove `<MachineStatusCard>` from `DashboardPage.tsx`. Static spec data (CPU, GNSS, working width) doesn't belong on a daily ops dashboard. It already renders inside Settings-relevant context; we'll just stop showing it on home.
 
-**Implementace**:
-- Nový komponent `MachineMarker.tsx` -- vykreslí Leaflet marker s custom ikonou (pulzující modrý kruh)
-- Použije `useBarbieriiClient()` hook pro získání aktuální pozice
-- Zobrazí popup s RTK status, rychlostí, režimem
-- Pokud pozice není k dispozici, marker se nezobrazí
-- Přidání do `AreasMap.tsx` jako volitelný prop `showMachinePosition`
+## 5. Replace "Rychlé akce" slider with 2 large primary CTAs
 
-**Soubory**:
-| Soubor | Akce |
-|--------|------|
-| `src/components/map/MachineMarker.tsx` | Nový -- živý bod stroje |
-| `src/components/map/AreasMap.tsx` | Přidat MachineMarker |
-| `src/pages/AreasPage.tsx` | Předat `showMachinePosition={true}` |
+In `src/pages/DashboardPage.tsx`: replace `<QuickActionsCard>` with two big buttons directly under `MthDisplay`:
+- **"Zahájit provoz"** → `/provoz/novy`
+- **"Zadat servis"** → `/servis/novy`
 
----
+Sized for gloved-hand use: `h-16`, `text-base font-bold`, full width grid `grid-cols-2 gap-3`. Keeps FAB for the third action (Nový areál) — no duplication, since the slider goes away.
 
-## 3. Offline detekce (last_seen watchdog)
+## 6. Bottom nav cleanup
 
-Pokud telemetrie nepřijde déle než 60 sekund, zobrazí se varování "Stroj neodpovídá" s časem posledního signálu.
+In `src/components/layout/BottomNav.tsx`:
+- Rename `AI` → `Asistent`.
+- Add `aria-current="page"` only on the active link (already correct — verify).
+- Reduce active-state indicators from 4 (bg + underline + scale + bold) to 2 (bg + bold).
 
-**Implementace**:
-- V `BarbieriRealtimeClient` přidat watchdog timer (60s timeout)
-- Nový stav `stale` v ConnectionState: `'disconnected' | 'connecting' | 'connected' | 'stale' | 'error'`
-- Při každém příchozím telemetry resetnout timer
-- Po 60s bez dat: přepnout stav na `stale`
-- V `TelemetryLive.tsx` zobrazit žlutý banner "Stroj neodpovídá od XX:XX:XX"
+## 7. Quick polish
 
-**Soubory**:
-| Soubor | Akce |
-|--------|------|
-| `src/lib/barbieri-realtime.ts` | Přidat watchdog timer + stav `stale` |
-| `src/components/dashboard/TelemetryLive.tsx` | Zobrazit varování při `stale` |
+- `MthDisplay.tsx`: bump "Upravit MTH" tap target from `h-8` → `h-11`.
+- `TelemetryLive.tsx` (or wherever `192.168.4.1:5000` link lives): add inline `(vyžaduje WiFi stroje)` hint + `title` tooltip.
 
----
+## Out of scope (deliberate)
+- **Keep FAB** — memory'd decision, audit's "remove FAB OR slider" is satisfied by removing the slider.
+- SVG sprite refactor (large cross-cutting change, low ROI now).
+- Lazy-loading floating-ui (Radix uses it eagerly; not a clean win).
+- `date-fns` → `Intl.RelativeTimeFormat` (separate pass).
 
-## 4. Servisní logika (MTH z telemetrie --> servis_due)
+## Files touched
 
-Aktuálně `ServiceIntervalsOverview` bere MTH z tabulky `stroje.aktualni_mth` (manuálně aktualizováno). Nově se MTH bude aktualizovat i z telemetrie automaticky.
+| File | Change |
+|---|---|
+| `src/components/diagnostics/AIDiagnostics.tsx` | label+input refactor |
+| `src/pages/DashboardPage.tsx` | drop tagline, drop MachineStatusCard, drop QuickActionsCard, add 2 CTAs, sr-only h1 |
+| `src/components/layout/AppHeader.tsx` | h1→span, MTH link → /nastaveni |
+| `src/components/layout/BottomNav.tsx` | label + active-state cleanup |
+| `src/components/dashboard/MthDisplay.tsx` | h-8 → h-11 |
+| `src/components/dashboard/TelemetryLive.tsx` | WiFi-only hint on machine link |
 
-**Implementace**:
-- V `DashboardPage` porovnat `telemetry.mth` s `machine.aktualni_mth`
-- Pokud `telemetry.mth > machine.aktualni_mth`, automaticky aktualizovat `stroje.aktualni_mth` (přes existující `updateMth()` z `useMachine`)
-- Přidat debounce (max 1 aktualizace za 30s), aby se nepřepisovalo při každém telemetry frame
-- `ServiceIntervalsOverview` tak bude automaticky reagovat na nový MTH
-
-**Soubory**:
-| Soubor | Akce |
-|--------|------|
-| `src/pages/DashboardPage.tsx` | Přidat efekt pro sync MTH z telemetrie |
-
----
-
-## 5. PLC Simulátor pro testování
-
-Nová edge function `simulate-telemetry`, která jednorázově odešle testovací telemetrii pro zadaný stroj. Umožní ověřit celý řetězec bez fyzického robota.
-
-**Implementace**:
-- Edge function `simulate-telemetry`:
-  - `POST` s volitelným `stroj_id`
-  - Vygeneruje realistická data (GPS kolem Prahy, náhodné RTK FIX/FLOAT, rychlost 0-5 km/h, MTH inkrementálně)
-  - Zapíše přes `ingest-telemetry` logiku (upsert do `telemetrie_stroje`)
-  - Autorizace přes service_role
-- Na dashboardu přidat malé dev tlačítko "Simulovat telemetrii" (jen pro adminy), které zavolá tuto funkci
-
-**Soubory**:
-| Soubor | Akce |
-|--------|------|
-| `supabase/functions/simulate-telemetry/index.ts` | Nový -- simulátor |
-| `src/components/dashboard/TelemetryLive.tsx` | Přidat dev tlačítko pro adminy |
-
----
-
-## Technický souhrn
-
-```text
-Celkem souborů k úpravě/vytvoření: 7
-- 1x nový komponent (MachineMarker)
-- 1x nová edge function (simulate-telemetry)
-- 5x úprava existujících souborů
-- 0x databázová migrace (RLS je OK)
-```
-
-## Pořadí implementace
-
-1. Watchdog (stale detection) -- základ pro spolehlivé UX
-2. PLC simulátor -- umožní testovat vše ostatní
-3. Mapa s živým bodem stroje
-4. MTH sync z telemetrie do servisní logiky
+No DB migration. No new dependencies.
