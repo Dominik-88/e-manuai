@@ -3,7 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMachine } from '@/hooks/useMachine';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Wrench, Save, Gauge, Sun } from 'lucide-react';
+import { User, Wrench, Save, Gauge, Sun, ChevronRight, Cpu } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { SunGlareToggle } from '@/components/settings/SunGlareToggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -192,6 +193,17 @@ export default function SettingsPage() {
               </DialogContent>
             </Dialog>
           </div>
+
+          <Link
+            to="/stroj/detaily"
+            className="flex h-14 items-center justify-between rounded-lg border border-border bg-muted/30 px-4 text-sm transition-colors hover:bg-muted"
+          >
+            <span className="flex items-center gap-3">
+              <Cpu className="h-5 w-5 text-muted-foreground" />
+              <span className="font-medium">Technické specifikace stroje</span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Link>
         </div>
       )}
 
