@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Camera, Upload, Loader2, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Camera, Upload, Loader2, AlertTriangle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useMachine } from '@/hooks/useMachine';
@@ -11,8 +11,6 @@ export function AIDiagnostics() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLInputElement>(null);
   const { machine } = useMachine();
 
   const handleFile = (file: File) => {
@@ -92,10 +90,16 @@ export function AIDiagnostics() {
     setImage(null);
     setAnalysis(null);
     setError(null);
-    // Reset file inputs
-    if (cameraRef.current) cameraRef.current.value = '';
-    if (galleryRef.current) galleryRef.current.value = '';
+    // Clear native inputs by id (label-bound, no refs needed)
+    const cam = document.getElementById('ai-camera-upload') as HTMLInputElement | null;
+    const gal = document.getElementById('ai-gallery-upload') as HTMLInputElement | null;
+    if (cam) cam.value = '';
+    if (gal) gal.value = '';
   };
+
+  // Shared button-like styling for <label> triggers (matches Button component visuals)
+  const labelBase =
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-bold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-14 px-4 py-2 cursor-pointer';
 
   return (
     <div className="dashboard-widget !border-l-info">
@@ -103,23 +107,21 @@ export function AIDiagnostics() {
         AI Diagnostika opotřebení
       </h3>
 
-      {/* Separate input for camera (with capture) */}
+      {/* Native inputs — kept in DOM, sr-only so they remain in the accessibility tree */}
       <input
-        ref={cameraRef}
+        id="ai-camera-upload"
         type="file"
         accept="image/*"
         capture="environment"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        className="hidden"
+        className="sr-only"
       />
-
-      {/* Separate input for gallery (without capture) */}
       <input
-        ref={galleryRef}
+        id="ai-gallery-upload"
         type="file"
         accept="image/*"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        className="hidden"
+        className="sr-only"
       />
 
       {!image ? (
@@ -128,21 +130,37 @@ export function AIDiagnostics() {
             Vyfoťte díl stroje (nože, řemeny, filtry) a AI vyhodnotí stupeň opotřebení.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Button
-              onClick={() => cameraRef.current?.click()}
-              className="h-14 gap-2 text-base font-bold"
+            <label
+              htmlFor="ai-camera-upload"
+              tabIndex={0}
+              className={cn(labelBase, 'bg-primary text-primary-foreground hover:bg-primary/90')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  document.getElementById('ai-camera-upload')?.click();
+                }
+              }}
             >
               <Camera className="h-5 w-5" />
               Vyfotit
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => galleryRef.current?.click()}
-              className="h-14 gap-2 text-base"
+            </label>
+            <label
+              htmlFor="ai-gallery-upload"
+              tabIndex={0}
+              className={cn(
+                labelBase,
+                'border border-input bg-background hover:bg-accent hover:text-accent-foreground font-semibold'
+              )}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  document.getElementById('ai-gallery-upload')?.click();
+                }
+              }}
             >
               <Upload className="h-5 w-5" />
               Galerie
-            </Button>
+            </label>
           </div>
         </div>
       ) : (

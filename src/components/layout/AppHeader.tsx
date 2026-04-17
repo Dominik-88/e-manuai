@@ -36,7 +36,7 @@ export function AppHeader() {
               <span className="font-mono text-xs font-bold leading-none text-primary-foreground">BHV</span>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-sm font-semibold leading-none">e-ManuAI</h1>
+              <span className="block text-sm font-semibold leading-none">e-ManuAI</span>
               {!loading && machine && (
                 <p className="text-xs text-muted-foreground">{machine.vyrobni_cislo}</p>
               )}
@@ -44,9 +44,9 @@ export function AppHeader() {
           </Link>
         </div>
 
-        {/* Center: MTH Display - Large touch target */}
+        {/* Center: MTH Display - Large touch target, links to settings (MTH editing) */}
         {!loading && machine && (
-          <Link to="/" className="flex items-center gap-2 rounded-lg bg-steel-dark px-4 py-2 transition-colors hover:bg-steel">
+          <Link to="/nastaveni" aria-label="Upravit motohodiny v nastavení" className="flex items-center gap-2 rounded-lg bg-steel-dark px-4 py-2 transition-colors hover:bg-steel">
             <span className="text-xs uppercase text-muted-foreground">MTH</span>
             <span className="font-mono text-2xl font-bold text-foreground">
               {machine.aktualni_mth.toFixed(1)}

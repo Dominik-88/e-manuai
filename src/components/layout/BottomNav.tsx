@@ -14,7 +14,7 @@ const navItems = [
   { to: '/manual', icon: BookOpen, label: 'Manuál', ariaLabel: 'Přejít do Manuálu' },
   { to: '/servis', icon: Wrench, label: 'Servis', ariaLabel: 'Přejít do Servisu' },
   { to: '/arealy', icon: MapPin, label: 'Areály', ariaLabel: 'Přejít do Areálů' },
-  { to: '/asistent', icon: MessageSquare, label: 'AI', ariaLabel: 'Přejít k AI Asistentovi' },
+  { to: '/asistent', icon: MessageSquare, label: 'Asistent', ariaLabel: 'Přejít k AI Asistentovi' },
 ];
 
 export function BottomNav() {
@@ -50,7 +50,7 @@ export function BottomNav() {
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={item.ariaLabel}
               >
-                {/* Glow bg for active */}
+                {/* Active indicator: background only (reduced from 4 indicators to 2: bg + bold) */}
                 {isActive && (
                   <div 
                     className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/10 transition-all" 
@@ -58,10 +58,7 @@ export function BottomNav() {
                   />
                 )}
                 <item.icon 
-                  className={cn(
-                    'relative z-10 h-5 w-5 transition-transform duration-200',
-                    isActive && 'scale-110'
-                  )} 
+                  className="relative z-10 h-5 w-5"
                   strokeWidth={isActive ? 2.5 : 2}
                   aria-hidden="true"
                 />
@@ -71,12 +68,6 @@ export function BottomNav() {
                 )}>
                   {item.label}
                 </span>
-                {isActive && (
-                  <div 
-                    className="absolute bottom-0 h-0.5 w-8 rounded-t-full bg-primary" 
-                    aria-hidden="true"
-                  />
-                )}
               </NavLink>
             );
           })}

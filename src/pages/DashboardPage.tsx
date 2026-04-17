@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useMachine } from '@/hooks/useMachine';
 import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
-import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
-import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
 import { AreaStats } from '@/components/dashboard/AreaStats';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
 import { TelemetryLive } from '@/components/dashboard/TelemetryLive';
@@ -12,7 +11,7 @@ import { SessionHistory } from '@/components/digital-twin/SessionHistory';
 import { AIDiagnostics } from '@/components/diagnostics/AIDiagnostics';
 import { OfflineBanner } from '@/components/layout/OfflineIndicator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Cpu } from 'lucide-react';
+import { ChevronDown, Cpu, Clock, Wrench } from 'lucide-react';
 
 export default function DashboardPage() {
   const { machine, loading: machineLoading, updateMth } = useMachine();
@@ -65,26 +64,30 @@ export default function DashboardPage() {
     <>
       <OfflineBanner />
       <div className="space-y-5 animate-fade-in">
-        {/* Branding */}
-        <header className="text-center">
-          <h1 className="text-lg font-bold tracking-wide text-foreground">
-            e-ManuAI <span className="text-muted-foreground">•</span> by <span className="text-muted-foreground">•</span> Dominik Schmied
-          </h1>
-        </header>
+        {/* Single semantic H1 for assistive tech */}
+        <h1 className="sr-only">e-ManuAI – Barbieri XRot 95 EVO</h1>
 
         {/* MTH Display - Hero section */}
         <section aria-label="Aktuální stav motoru">
           <MthDisplay machine={machine} />
         </section>
 
-        {/* Quick actions - horizontal scroll */}
-        <section aria-label="Rychlé akce">
-          <QuickActionsCard />
-        </section>
-
-        {/* Machine status */}
-        <section aria-label="Stav stroje">
-          <MachineStatusCard machine={machine} />
+        {/* Primary CTAs - large, gloved-hand sized */}
+        <section aria-label="Hlavní akce" className="grid grid-cols-2 gap-3">
+          <Link
+            to="/provoz/novy"
+            className="flex h-16 items-center justify-center gap-2 rounded-xl bg-primary text-base font-bold uppercase text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-[0.98]"
+          >
+            <Clock className="h-5 w-5" aria-hidden="true" />
+            Zahájit provoz
+          </Link>
+          <Link
+            to="/servis/novy"
+            className="flex h-16 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card text-base font-bold uppercase text-foreground shadow-sm transition-all hover:bg-muted active:scale-[0.98]"
+          >
+            <Wrench className="h-5 w-5" aria-hidden="true" />
+            Zadat servis
+          </Link>
         </section>
 
         {/* Area stats */}
