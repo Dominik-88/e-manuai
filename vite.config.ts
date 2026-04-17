@@ -40,8 +40,7 @@ export default defineConfig(({ mode }) => ({
     dedupe: ['react', 'react-dom', 'react-router-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
-    force: true,
+    include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react-router-dom'],
   },
   build: {
     sourcemap: true,
@@ -49,11 +48,15 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Core React - always needed
-          if (id.includes('react-dom') || (id.includes('/react/') && !id.includes('react-router'))) {
+          // Core React (incl. JSX runtime + scheduler) — must be a single chunk
+          if (
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/scheduler/')
+          ) {
             return 'vendor-react-core';
           }
-          // Router - needed for navigation
+          // Router
           if (id.includes('react-router')) {
             return 'vendor-react-router';
           }
