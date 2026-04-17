@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface PendingRecord {
   id: string;
-  type: 'service' | 'operation' | 'mth_update';
+  type: 'service' | 'operation' | 'mth_update' | 'seceni_quick';
   data: Record<string, unknown>;
   createdAt: string;
   retries: number;
@@ -124,6 +124,56 @@ export async function saveMthUpdate(machineId: string, newMth: number): Promise<
   return { offline: true };
 }
 
+/**
+ * Quick mowing session — single-tap "posekáno" record from AreasPage.
+ * Inserts into seceni_relace; queues offline if no network.
+ */
+export async function saveQuickMow(input: {
+  arealId: string;
+  stroj_id: string;
+  user_id: string;
+  mth_start: number;
+  plocha_m2: number | null;
+  poznamky?: string | null;
+}): Promise<{ offline: boolean }> {
+  const now = new Date().toISOString();
+  const record = {
+    areal_id: input.arealId,
+    stroj_id: input.stroj_id,
+    user_id: input.user_id,
+    datum_cas_start: now,
+    datum_cas_konec: now,
+    mth_start: input.mth_start,
+    mth_konec: input.mth_start,
+    mth_delta: 0,
+    plocha_posekana_m2: input.plocha_m2,
+    rezim: 'manuální',
+    poznamky: input.poznamky ?? null,
+  };
+
+  if (navigator.onLine) {
+    try {
+      const { error } = await supabase.from('seceni_relace').insert(record as any);
+      if (error) throw error;
+      return { offline: false };
+    } catch (err) {
+      console.error('[OfflineQueue] Quick mow save failed, queuing:', err);
+    }
+  }
+
+  const pending: PendingRecord = {
+    id: crypto.randomUUID(),
+    type: 'seceni_quick',
+    data: record,
+    createdAt: new Date().toISOString(),
+    retries: 0,
+  };
+  const items = getPendingItems();
+  items.push(pending);
+  savePendingItems(items);
+  return { offline: true };
+}
+
 export async function syncPendingRecords(): Promise<{ synced: number; failed: number }> {
   const items = getPendingItems();
   if (items.length === 0) return { synced: 0, failed: 0 };
@@ -149,7 +199,12 @@ export async function syncPendingRecords(): Promise<{ synced: number; failed: nu
           .eq('id', machineId);
         if (error) throw error;
       } else {
-        const table = item.type === 'service' ? 'servisni_zaznamy' : 'provozni_zaznamy';
+        const table =
+          item.type === 'service'
+            ? 'servisni_zaznamy'
+            : item.type === 'seceni_quick'
+              ? 'seceni_relace'
+              : 'provozni_zaznamy';
         const { error } = await supabase.from(table).insert(item.data as any);
         if (error) throw error;
       }
