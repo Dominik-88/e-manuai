@@ -24,11 +24,14 @@ Deno.serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const ingestSecret = Deno.env.get('TELEMETRY_INGEST_SECRET')
 
-    // Accept either Bearer service_role token or x-api-key matching service_role
+    // Require dedicated device-scoped secret (NOT service_role) for ingest auth
     const isAuthorized = 
-      authHeader === `Bearer ${serviceRoleKey}` || 
-      apiKey === serviceRoleKey
+      !!ingestSecret && (
+        authHeader === `Bearer ${ingestSecret}` || 
+        apiKey === ingestSecret
+      )
 
     if (!isAuthorized) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
