@@ -2,19 +2,26 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, MapPin, ExternalLink, FileSpreadsheet, X, Map, List, Ruler, Fence, Filter, Trash2 } from 'lucide-react';
+import {
+  Plus, Search, MapPin, FileSpreadsheet, FileText, X, Map, List, Filter, Trash2, Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { OKRES_NAMES } from '@/types/database';
-import type { OkresCode, TypArealu } from '@/types/database';
-import { exportAreasToExcel } from '@/lib/export';
+import type { OkresCode } from '@/types/database';
+import { exportAreasToExcel, exportAreasReportPDF } from '@/lib/export';
+import { saveQuickMow } from '@/lib/offline-queue';
 import { toast } from 'sonner';
 import { AreasMap } from '@/components/map/AreasMap';
 import { RoutePlanner } from '@/components/route/RoutePlanner';
 import { useAuth } from '@/contexts/AuthContext';
-import { getTypeConfig } from '@/components/map/AreaMarkerIcon';
+import { useMachine } from '@/hooks/useMachine';
+import { useAreaStatuses, getStatusForArea } from '@/hooks/useAreaStatuses';
+import { useNearestArea } from '@/hooks/useNearestArea';
+import { AreaCard, type AreaCardArea } from '@/components/areas/AreaCard';
+import { AreaProgressBar } from '@/components/areas/AreaProgressBar';
+import { QuickMowDialog } from '@/components/areas/QuickMowDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,17 +40,39 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+type StatusFilter = 'all' | 'todo-today' | 'high-priority' | 'done-today';
+
 export default function AreasPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterTyp, setFilterTyp] = useState<string>('all');
   const [filterOkres, setFilterOkres] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [areaToDelete, setAreaToDelete] = useState<{ id: string; nazev: string } | null>(null);
+  const [areaToMow, setAreaToMow] = useState<AreaCardArea | null>(null);
   const [routeAreas, setRouteAreas] = useState<any[]>([]);
+  const [savingMow, setSavingMow] = useState(false);
 
-  const { isAdmin, isTechnik } = useAuth();
+  const { isAdmin, isTechnik, user } = useAuth();
+  const { machine } = useMachine();
   const queryClient = useQueryClient();
   const canDelete = isAdmin || isTechnik;
+
+  const { data: areas, isLoading } = useQuery({
+    queryKey: ['areas-full'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('arealy')
+        .select(`*, stroje (vyrobni_cislo, model)`)
+        .order('nazev');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: statuses } = useAreaStatuses();
+
+  const nearest = useNearestArea(areas as any);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -60,44 +89,62 @@ export default function AreasPage() {
     },
   });
 
-  const { data: areas, isLoading } = useQuery({
-    queryKey: ['areas-full'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('arealy')
-        .select(`
-          *,
-          stroje (vyrobni_cislo, model)
-        `)
-        .order('nazev');
+  // Undo last today's mowing for an area
+  const undoMowMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { error } = await supabase.from('seceni_relace').delete().eq('id', sessionId);
       if (error) throw error;
-      return data;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['area-statuses'] });
+      toast.success('Stav vrácen zpět');
+    },
+    onError: (e: any) => toast.error('Nelze vrátit zpět: ' + e.message),
   });
 
   const filteredAreas = useMemo(() => {
     if (!areas) return [];
-    return areas.filter(area => {
+    return areas.filter((area) => {
       const matchesSearch = !searchQuery ||
         area.nazev.toLowerCase().includes(searchQuery.toLowerCase()) ||
         area.okres?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesTyp = filterTyp === 'all' || area.typ === filterTyp;
       const matchesOkres = filterOkres === 'all' || area.okres === filterOkres;
-      return matchesSearch && matchesTyp && matchesOkres;
-    });
-  }, [areas, searchQuery, filterTyp, filterOkres]);
 
-  const totalArea = areas?.reduce((sum, a) => sum + (a.plocha_m2 || 0), 0) || 0;
-  const totalFence = areas?.reduce((sum, a) => sum + (a.obvod_oploceni_m || 0), 0) || 0;
+      const status = getStatusForArea(statuses, area.id);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'todo-today' && !status.isMowedToday) ||
+        (statusFilter === 'done-today' && status.isMowedToday) ||
+        (statusFilter === 'high-priority' &&
+          (status.priority === 'high' || status.priority === 'never'));
+
+      return matchesSearch && matchesTyp && matchesOkres && matchesStatus;
+    });
+  }, [areas, searchQuery, filterTyp, filterOkres, statusFilter, statuses]);
+
+  // Progress aggregation across full (unfiltered) area set
+  const progress = useMemo(() => {
+    if (!areas) return { total: 0, done: 0, totalArea: 0, doneArea: 0, high: 0 };
+    let done = 0, doneArea = 0, totalArea = 0, high = 0;
+    for (const a of areas) {
+      const s = getStatusForArea(statuses, a.id);
+      const area = a.plocha_m2 || 0;
+      totalArea += area;
+      if (s.isMowedToday) { done++; doneArea += area; }
+      if ((s.priority === 'high' || s.priority === 'never') && !s.isMowedToday) high++;
+    }
+    return { total: areas.length, done, totalArea, doneArea, high };
+  }, [areas, statuses]);
 
   const uniqueTypes = useMemo(() => {
     if (!areas) return [];
-    return [...new Set(areas.map(a => a.typ).filter(Boolean))].sort();
+    return [...new Set(areas.map((a) => a.typ).filter(Boolean))].sort();
   }, [areas]);
 
   const uniqueOkresy = useMemo(() => {
     if (!areas) return [];
-    return [...new Set(areas.map(a => a.okres).filter(Boolean))].sort() as string[];
+    return [...new Set(areas.map((a) => a.okres).filter(Boolean))].sort() as string[];
   }, [areas]);
 
   const handleExportExcel = async () => {
@@ -108,8 +155,31 @@ export default function AreasPage() {
     } catch { toast.error('Chyba při exportu'); }
   };
 
+  const handleExportPDF = async () => {
+    if (!areas?.length) { toast.error('Žádné areály k exportu'); return; }
+    try {
+      const rows = areas.map((a) => {
+        const s = getStatusForArea(statuses, a.id);
+        return {
+          nazev: a.nazev,
+          typ: a.typ,
+          plocha_m2: a.plocha_m2,
+          okres: a.okres,
+          status: s.priority === 'done-today' ? 'done-today' as const : s.priority,
+          daysSince: s.daysSince,
+          lastMowedAt: s.lastMowedAt,
+          poznamky: a.poznamky,
+        };
+      });
+      await exportAreasReportPDF(rows);
+      toast.success('PDF protokol stažen');
+    } catch (e: any) {
+      toast.error('Chyba při PDF exportu: ' + e.message);
+    }
+  };
+
   const handleToggleRoute = useCallback((area: any) => {
-    setRouteAreas(prev => {
+    setRouteAreas((prev) => {
       const exists = prev.find((a: any) => a.id === area.id);
       if (exists) return prev.filter((a: any) => a.id !== area.id);
       return [...prev, area];
@@ -118,9 +188,70 @@ export default function AreasPage() {
 
   const routeAreaIds = useMemo(() => routeAreas.map((a: any) => a.id), [routeAreas]);
 
+  const handleConfirmMow = async (note: string | null) => {
+    if (!areaToMow || !machine || !user) {
+      toast.error('Chybí stroj nebo uživatel');
+      return;
+    }
+    setSavingMow(true);
+    try {
+      const result = await saveQuickMow({
+        arealId: areaToMow.id,
+        stroj_id: machine.id,
+        user_id: user.id,
+        mth_start: machine.aktualni_mth,
+        plocha_m2: areaToMow.plocha_m2,
+        poznamky: note,
+      });
+
+      // Haptic feedback
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(50);
+      }
+
+      // Optimistic refresh
+      queryClient.invalidateQueries({ queryKey: ['area-statuses'] });
+
+      const closed = areaToMow;
+      setAreaToMow(null);
+
+      toast.success(
+        result.offline ? '📵 Uloženo offline – synchronizace později' : `✓ ${closed.nazev} – posekáno`,
+        {
+          duration: 5000,
+          action: {
+            label: 'Vrátit zpět',
+            onClick: async () => {
+              // Re-fetch latest status to get session id
+              const { data } = await supabase
+                .from('seceni_relace')
+                .select('id')
+                .eq('areal_id', closed.id)
+                .order('datum_cas_start', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (data?.id) undoMowMutation.mutate(data.id);
+            },
+          },
+        }
+      );
+    } catch (e: any) {
+      toast.error('Nelze uložit: ' + e.message);
+    } finally {
+      setSavingMow(false);
+    }
+  };
+
+  const handleUndoFromCard = async (arealId: string) => {
+    const status = getStatusForArea(statuses, arealId);
+    if (!status.lastSessionId || !status.isMowedToday) return;
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.(30);
+    undoMowMutation.mutate(status.lastSessionId);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Header with inline view toggle */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
@@ -129,12 +260,11 @@ export default function AreasPage() {
           <div>
             <h1 className="text-2xl font-bold">Areály</h1>
             <p className="text-xs text-muted-foreground">
-              {areas?.length || 0} objektů · {totalArea.toLocaleString('cs-CZ')} m² · {totalFence.toLocaleString('cs-CZ')} bm
+              {progress.total} objektů · {(progress.totalArea / 1000).toFixed(1)} k m²
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* View toggle inline */}
           <div className="flex rounded-lg border border-border">
             <button
               onClick={() => setViewMode('list')}
@@ -151,7 +281,10 @@ export default function AreasPage() {
               <Map className="h-4 w-4" />
             </button>
           </div>
-          <Button variant="outline" onClick={handleExportExcel} size="icon" className="h-10 w-10" aria-label="Export">
+          <Button variant="outline" onClick={handleExportPDF} size="icon" className="h-10 w-10" aria-label="PDF protokol">
+            <FileText className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} size="icon" className="h-10 w-10" aria-label="Excel">
             <FileSpreadsheet className="h-4 w-4" />
           </Button>
           <Button asChild size="icon" className="h-10 w-10">
@@ -162,7 +295,42 @@ export default function AreasPage() {
         </div>
       </div>
 
-      {/* Search + Filters in one row */}
+      {/* Daily progress dashboard */}
+      <AreaProgressBar
+        totalCount={progress.total}
+        doneTodayCount={progress.done}
+        totalAreaM2={progress.totalArea}
+        doneAreaM2={progress.doneArea}
+        highPriorityCount={progress.high}
+      />
+
+      {/* Geofence auto-suggest banner */}
+      {nearest.nearestId && nearest.nearestName && (() => {
+        const s = getStatusForArea(statuses, nearest.nearestId);
+        if (s.isMowedToday) return null;
+        return (
+          <button
+            onClick={() => {
+              const a = areas?.find((x) => x.id === nearest.nearestId);
+              if (a) setAreaToMow(a as AreaCardArea);
+            }}
+            className="flex w-full items-center gap-3 rounded-xl border border-info/40 bg-info/10 p-3 text-left transition-all hover:bg-info/15 active:scale-[0.98]"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-info/20">
+              <Sparkles className="h-5 w-5 text-info" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-medium uppercase tracking-wide text-info">Jste poblíž areálu</div>
+              <div className="truncate font-semibold">{nearest.nearestName}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {Math.round(nearest.distanceM ?? 0)} m · ťukněte pro označení
+              </div>
+            </div>
+          </button>
+        );
+      })()}
+
+      {/* Search + Filters */}
       <div className="flex gap-2">
         <div className="relative flex-1" role="search">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -181,62 +349,64 @@ export default function AreasPage() {
           )}
         </div>
         <Select value={filterTyp} onValueChange={setFilterTyp}>
-          <SelectTrigger className="h-11 w-[130px] text-xs">
+          <SelectTrigger className="h-11 w-[110px] text-xs">
             <Filter className="mr-1 h-3 w-3" />
             <SelectValue placeholder="Typ" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Všechny typy</SelectItem>
-            {uniqueTypes.map(t => (
+            {uniqueTypes.map((t) => (
               <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={filterOkres} onValueChange={setFilterOkres}>
-          <SelectTrigger className="hidden h-11 w-[140px] text-xs sm:flex">
+          <SelectTrigger className="hidden h-11 w-[120px] text-xs sm:flex">
             <SelectValue placeholder="Okres" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Všechny okresy</SelectItem>
-            {uniqueOkresy.map(o => (
-              <SelectItem key={o} value={o}>
-                {OKRES_NAMES[o as OkresCode] || o}
-              </SelectItem>
+            {uniqueOkresy.map((o) => (
+              <SelectItem key={o} value={o}>{OKRES_NAMES[o as OkresCode] || o}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {(filterTyp !== 'all' || filterOkres !== 'all') && (
-          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setFilterTyp('all'); setFilterOkres('all'); }}>
-            <X className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
-      {/* Compact stats bar */}
+      {/* Status filter chips */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2">
-          <span className="font-mono text-sm font-bold text-primary">{filteredAreas?.length || 0}</span>
-          <span className="text-[10px] text-muted-foreground">areálů</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg bg-success/10 px-3 py-2">
-          <Ruler className="h-3 w-3 text-success" />
-          <span className="font-mono text-sm font-bold text-success">{totalArea.toLocaleString('cs-CZ')}</span>
-          <span className="text-[10px] text-muted-foreground">m²</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg bg-info/10 px-3 py-2">
-          <Fence className="h-3 w-3 text-info" />
-          <span className="font-mono text-sm font-bold text-info">{(totalFence / 1000).toFixed(1)}</span>
-          <span className="text-[10px] text-muted-foreground">km</span>
-        </div>
+        {([
+          ['all', 'Vše', progress.total],
+          ['todo-today', 'Neposekané', progress.total - progress.done],
+          ['high-priority', 'Přerůstá', progress.high],
+          ['done-today', 'Hotovo dnes', progress.done],
+        ] as Array<[StatusFilter, string, number]>).map(([key, label, count]) => (
+          <button
+            key={key}
+            onClick={() => setStatusFilter(key)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 ${
+              statusFilter === key
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <span>{label}</span>
+            <span className="font-mono text-[10px] opacity-70">{count}</span>
+          </button>
+        ))}
+        {(filterTyp !== 'all' || filterOkres !== 'all') && (
+          <button
+            onClick={() => { setFilterTyp('all'); setFilterOkres('all'); }}
+            className="flex shrink-0 items-center gap-1 rounded-full bg-destructive/15 px-2 py-1.5 text-xs text-destructive"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
       {/* Route planner */}
       {filteredAreas && filteredAreas.length > 0 && (
-        <RoutePlanner
-          areas={filteredAreas}
-          routeAreas={routeAreas}
-          setRouteAreas={setRouteAreas}
-        />
+        <RoutePlanner areas={filteredAreas} routeAreas={routeAreas} setRouteAreas={setRouteAreas} />
       )}
 
       {/* Map view */}
@@ -250,92 +420,33 @@ export default function AreasPage() {
         />
       )}
 
-      {/* List view */}
+      {/* Grid view (cards) */}
       {viewMode === 'list' && (
         <>
           {isLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="shimmer h-24 rounded-xl" />
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted/40" />
               ))}
             </div>
           ) : filteredAreas && filteredAreas.length > 0 ? (
-            <div className="space-y-2">
-              {filteredAreas.map(area => {
-                const typeConfig = getTypeConfig(area.typ);
+            <div className="space-y-2.5">
+              {filteredAreas.map((area) => {
+                const status = getStatusForArea(statuses, area.id);
                 const isInRoute = routeAreaIds.includes(area.id);
+                const isNearest = nearest.nearestId === area.id;
                 return (
-                  <div key={area.id} className="group relative overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
-                    {/* Color accent strip */}
-                    <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: typeConfig.color }} />
-
-                    <div className="flex items-start gap-3 p-3.5 pl-4">
-                      {/* Type icon */}
-                      <div
-                        className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base"
-                        style={{ background: `${typeConfig.color}22` }}
-                      >
-                        {typeConfig.emoji}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="truncate font-semibold">{area.nazev}</h3>
-                          {isInRoute && (
-                            <Badge className="shrink-0 bg-info/20 text-info border-info/30 text-[10px]">
-                              v trase
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                          {area.okres && (
-                            <span>{OKRES_NAMES[area.okres as OkresCode] || area.okres}</span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Ruler className="h-3 w-3" />
-                            {area.plocha_m2?.toLocaleString('cs-CZ') || '?'} m²
-                          </span>
-                          {area.obvod_oploceni_m ? (
-                            <span className="flex items-center gap-1">
-                              <Fence className="h-3 w-3" />
-                              {area.obvod_oploceni_m} bm
-                            </span>
-                          ) : null}
-                          {area.kategorie_travnate_plochy && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              kat. {area.kategorie_travnate_plochy}
-                            </Badge>
-                          )}
-                        </div>
-                        {area.stroje && (
-                          <div className="mt-1 text-xs text-info">
-                            🚜 {(area.stroje as any).vyrobni_cislo}
-                          </div>
-                        )}
-                        {area.poznamky && (
-                          <p className="mt-1 text-[11px] text-muted-foreground line-clamp-1 italic">{area.poznamky}</p>
-                        )}
-                      </div>
-
-                      {/* Actions column */}
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        {canDelete && (
-                          <button
-                            onClick={() => setAreaToDelete({ id: area.id, nazev: area.nazev })}
-                            className="rounded-lg p-2 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                            aria-label={`Smazat ${area.nazev}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {area.gps_latitude && area.gps_longitude && (
-                          <span className="font-mono text-[9px] text-muted-foreground">
-                            {area.gps_latitude.toFixed(4)}°N
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <AreaCard
+                    key={area.id}
+                    area={area as AreaCardArea}
+                    status={status}
+                    isNearest={isNearest}
+                    isInRoute={isInRoute}
+                    canDelete={canDelete}
+                    onToggleMowed={() => setAreaToMow(area as AreaCardArea)}
+                    onUndoMowed={() => handleUndoFromCard(area.id)}
+                    onDelete={canDelete ? () => setAreaToDelete({ id: area.id, nazev: area.nazev }) : undefined}
+                  />
                 );
               })}
             </div>
@@ -345,15 +456,16 @@ export default function AreasPage() {
                 <MapPin className="h-10 w-10 text-muted-foreground/30" />
               </div>
               <h3 className="mt-4 text-lg font-semibold">
-                {searchQuery ? 'Žádné výsledky' : 'Žádné areály'}
+                {searchQuery || statusFilter !== 'all' ? 'Žádné výsledky' : 'Žádné areály'}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {searchQuery
                   ? `Pro "${searchQuery}" nebyly nalezeny žádné areály`
-                  : 'Přidejte první areál pro sledování prací'
-                }
+                  : statusFilter !== 'all'
+                    ? 'Zkuste změnit filtr'
+                    : 'Přidejte první areál pro sledování prací'}
               </p>
-              {!searchQuery && (
+              {!searchQuery && statusFilter === 'all' && (
                 <Button asChild className="mt-6 gap-2">
                   <Link to="/arealy/novy">
                     <Plus className="h-4 w-4" />
@@ -364,6 +476,18 @@ export default function AreasPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Quick mow dialog */}
+      {areaToMow && (
+        <QuickMowDialog
+          open={!!areaToMow}
+          onOpenChange={(o) => !o && setAreaToMow(null)}
+          arealNazev={areaToMow.nazev}
+          arealPlochaM2={areaToMow.plocha_m2}
+          onConfirm={handleConfirmMow}
+          saving={savingMow}
+        />
       )}
 
       {/* Delete confirmation */}
