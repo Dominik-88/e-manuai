@@ -116,7 +116,7 @@ serve(async (req) => {
               {
                 type: "image_url",
                 image_url: {
-                  url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}`,
+                  url: `data:${safeMime};base64,${imageBase64}`,
                 },
               },
               {
