@@ -223,3 +223,117 @@ export async function exportAreasToExcel(
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   downloadBlob(blob, `arealy-${new Date().toISOString().split('T')[0]}.xlsx`);
 }
+
+// ===== Areas mowing report (PDF protocol) =====
+interface AreaReportRow {
+  nazev: string;
+  typ: string;
+  plocha_m2: number | null;
+  okres: string | null;
+  status: 'done-today' | 'high' | 'medium' | 'ok' | 'never';
+  daysSince: number | null;
+  lastMowedAt: string | null;
+  poznamky?: string | null;
+}
+
+const STATUS_LABELS: Record<AreaReportRow['status'], string> = {
+  'done-today': 'Posekáno dnes',
+  'ok': 'V pořádku',
+  'medium': 'Střední priorita',
+  'high': 'Vysoká priorita',
+  'never': 'Nikdy neposekáno',
+};
+
+export async function exportAreasReportPDF(rows: AreaReportRow[]): Promise<void> {
+  const { default: jsPDF } = await import('jspdf');
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const today = new Date().toLocaleDateString('cs-CZ');
+
+  // Header
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Protokol o sečení areálů', pageWidth / 2, 20, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Datum: ${today}`, pageWidth / 2, 28, { align: 'center' });
+
+  // Summary
+  const doneToday = rows.filter(r => r.status === 'done-today').length;
+  const high = rows.filter(r => r.status === 'high' || r.status === 'never').length;
+  const totalArea = rows.reduce((s, r) => s + (r.plocha_m2 || 0), 0);
+  const doneArea = rows.filter(r => r.status === 'done-today').reduce((s, r) => s + (r.plocha_m2 || 0), 0);
+
+  doc.setFontSize(10);
+  doc.text(`Celkem areálů: ${rows.length}`, 14, 40);
+  doc.text(`Posekáno dnes: ${doneToday}`, 14, 46);
+  doc.text(`Vysoká priorita: ${high}`, 14, 52);
+  doc.text(`Plocha celkem: ${totalArea.toLocaleString('cs-CZ')} m² | Dnes: ${doneArea.toLocaleString('cs-CZ')} m²`, 14, 58);
+
+  doc.setLineWidth(0.5);
+  doc.line(14, 64, pageWidth - 14, 64);
+
+  // Table header
+  let yPos = 72;
+  const colWidths = [55, 25, 25, 25, 30, 25];
+  const headers = ['Areál', 'Typ', 'Plocha m²', 'Stav', 'Naposled', 'Dní'];
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  let xPos = 14;
+  headers.forEach((h, i) => {
+    doc.text(h, xPos, yPos);
+    xPos += colWidths[i];
+  });
+  yPos += 3;
+  doc.line(14, yPos, pageWidth - 14, yPos);
+  yPos += 6;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+
+  for (const r of rows) {
+    if (yPos > pageHeight - 20) {
+      doc.addPage();
+      yPos = 20;
+    }
+    xPos = 14;
+    const lastMowed = r.lastMowedAt ? new Date(r.lastMowedAt).toLocaleDateString('cs-CZ') : '—';
+    const cells = [
+      r.nazev.substring(0, 32),
+      r.typ,
+      r.plocha_m2?.toLocaleString('cs-CZ') ?? '—',
+      STATUS_LABELS[r.status],
+      lastMowed,
+      r.daysSince != null ? String(r.daysSince) : '—',
+    ];
+    cells.forEach((c, i) => {
+      doc.text(String(c), xPos, yPos, { maxWidth: colWidths[i] - 2 });
+      xPos += colWidths[i];
+    });
+    yPos += 6;
+
+    if (r.poznamky) {
+      doc.setTextColor(110);
+      doc.text(`  • ${r.poznamky.substring(0, 100)}`, 14, yPos, { maxWidth: pageWidth - 28 });
+      doc.setTextColor(0);
+      yPos += 5;
+    }
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(128);
+    doc.text(
+      `e-ManuAI · Vygenerováno: ${new Date().toLocaleString('cs-CZ')} · Strana ${i}/${pageCount}`,
+      pageWidth / 2,
+      pageHeight - 8,
+      { align: 'center' }
+    );
+  }
+
+  doc.save(`protokol-arealy-${new Date().toISOString().split('T')[0]}.pdf`);
+}
