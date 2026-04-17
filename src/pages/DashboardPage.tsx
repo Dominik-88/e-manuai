@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useMachine } from '@/hooks/useMachine';
 import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
-import { startGlobalTelemetrySync, stopGlobalTelemetrySync } from '@/lib/telemetry-sync';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
 import { MachineStatusCard } from '@/components/dashboard/MachineStatusCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
@@ -12,54 +11,27 @@ import { MowingSessionRecorder } from '@/components/digital-twin/MowingSessionRe
 import { SessionHistory } from '@/components/digital-twin/SessionHistory';
 import { AIDiagnostics } from '@/components/diagnostics/AIDiagnostics';
 import { OfflineBanner } from '@/components/layout/OfflineIndicator';
-import { RealtimeMap } from '@/components/map/RealtimeMap';
-import { ServiceStatusCard } from '@/components/service/ServiceStatusCard';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Activity, Cpu, MapPin } from 'lucide-react';
+import { ChevronDown, Cpu } from 'lucide-react';
 
 export default function DashboardPage() {
   const { machine, loading: machineLoading, updateMth } = useMachine();
   const { telemetry } = useBarbieriiClient();
   const lastMthSyncRef = useRef<number>(0);
-  const telemetrySyncStarted = useRef<boolean>(false);
 
   // Auto-sync MTH from telemetry to stroje table (debounced 30s)
   useEffect(() => {
     if (!machine || !telemetry || telemetry.mth <= 0) return;
     if (telemetry.mth <= machine.aktualni_mth) return;
-    
+
     const now = Date.now();
     if (now - lastMthSyncRef.current < 30_000) return; // 30s debounce
-    
+
     lastMthSyncRef.current = now;
     updateMth(telemetry.mth).catch(err => {
       console.error('[Dashboard] MTH sync error:', err);
     });
   }, [telemetry?.mth, machine?.aktualni_mth, updateMth, machine]);
-
-  // Start telemetry sync service
-  useEffect(() => {
-    if (!machine || telemetrySyncStarted.current) return;
-
-    console.log('🚀 Starting telemetry sync for machine:', machine.id);
-    const sync = startGlobalTelemetrySync(machine.id);
-    
-    sync.onError((error) => {
-      console.error('❌ Telemetry sync error:', error);
-    });
-
-    sync.onSuccess((data) => {
-      console.log('✅ Telemetry synced:', data.mth);
-    });
-
-    telemetrySyncStarted.current = true;
-
-    return () => {
-      console.log('🛑 Stopping telemetry sync');
-      stopGlobalTelemetrySync();
-      telemetrySyncStarted.current = false;
-    };
-  }, [machine]);
 
   if (machineLoading) {
     return (
@@ -113,33 +85,6 @@ export default function DashboardPage() {
         {/* Machine status */}
         <section aria-label="Stav stroje">
           <MachineStatusCard machine={machine} />
-        </section>
-
-        {/* NEW: Service Status Card */}
-        <section aria-labelledby="service-status-heading">
-          <h2 id="service-status-heading" className="section-heading mb-3">
-            <Activity className="h-4 w-4" aria-hidden="true" />
-            Servisní stav
-          </h2>
-          <ServiceStatusCard 
-            strojId={machine.id} 
-            currentMth={machine.aktualni_mth} 
-          />
-        </section>
-
-        {/* NEW: Realtime Map */}
-        <section aria-labelledby="realtime-map-heading">
-          <h2 id="realtime-map-heading" className="section-heading mb-3">
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            Live Tracking
-          </h2>
-          <RealtimeMap 
-            strojId={machine.id}
-            height="500px"
-            showTrail={true}
-            trailHours={1}
-            autoCenter={false}
-          />
         </section>
 
         {/* Area stats */}
