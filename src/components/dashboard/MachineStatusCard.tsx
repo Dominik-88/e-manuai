@@ -57,9 +57,13 @@ export function MachineStatusCard({ machine }: MachineStatusCardProps) {
             href={machine.dashboard_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm transition-colors hover:bg-muted"
+            title="Dostupné pouze při přímém WiFi spojení se strojem"
+            className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm transition-colors hover:bg-muted"
           >
-            <span>Dashboard stroje</span>
+            <span className="flex flex-col">
+              <span>Dashboard stroje</span>
+              <span className="text-xs text-warning">(vyžaduje WiFi stroje)</span>
+            </span>
             <code className="font-mono text-xs text-muted-foreground">
               {machine.dashboard_url}
             </code>

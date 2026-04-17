@@ -54,10 +54,10 @@ export function MthDisplay({ machine }: MthDisplayProps) {
             </span>
           </div>
           
-          <Button variant="ghost" size="sm" className="h-8 gap-1" asChild>
+          <Button variant="ghost" size="sm" className="h-11 gap-1.5 px-3" asChild>
             <Link to="/nastaveni">
-              <Edit2 className="h-3 w-3" />
-              <span className="text-xs">Upravit MTH</span>
+              <Edit2 className="h-4 w-4" />
+              <span className="text-sm">Upravit MTH</span>
             </Link>
           </Button>
         </div>
