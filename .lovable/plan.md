@@ -1,56 +1,72 @@
 
-# Plan: Audit reality check + manual integration
+# Plan: Areály module — interactive grid + status tracking + offline sync
 
-User audit je založen na **HTML inspekci běžící preview**, ale skoro všechny "kritické" body už byly opraveny v posledních 3 loopech. Než cokoli udělám, ověřím skutečný stav v kódu — ne v HTML.
+Před začátkem reality check + zarovnání s existujícími patterny v projektu.
 
-## Reality check (kód vs. audit)
+## Co už máme (nepředělávat)
 
-| Audit bod | Tvrzení | Realita v kódu |
-|---|---|---|
-| 2A Duplicitní H1 | "Stále máš dvě h1" | **OPRAVENO** — `AppHeader.tsx` má `<span>` (ne h1), `DashboardPage.tsx` má jen `<h1 className="sr-only">` |
-| 2B MTH 118.0 hardcoded | "Hodnota natvrdo v HTML" | **NENÍ HARDCODED** — `MthDisplay.tsx` čte `machine.aktualni_mth.toFixed(1)` z `useMachine()` hooku. To, že audit vidí `118.0` v HTML, znamená, že hodnota je v DB skutečně 118.0 — to je správně. |
-| 2C Rychlé akce slider | "Pořád horizontal slider" | **ODSTRANĚNO** — `QuickActionsCard` slider je pryč, nahrazen 2 velkými CTA "Zahájit provoz" / "Zadat servis" |
-| 2D SVG nadbytečnost | "Stovky řádků inline SVG" | **FALSE POSITIVE** — projekt **už používá** `lucide-react` všude. SVG v HTML je výstup tree-shaken `lucide-react` komponent, což je očekávané chování (každá ikona = 1 inline SVG). Sprite refactor by ušetřil ~5 KB gzipped, nestojí to za to. |
-| 3 Live data states | "Přidat skeleton + offline" | **HOTOVO** v posledním loopu — `TelemetryLive.tsx` má connecting/waiting/live stavy |
-
-**Závěr:** Uživatel pravděpodobně nereloadoval preview po posledním deploy nebo prohlíží starou verzi. Veškeré 4 "kritické" body už byly vyřešeny.
-
-## Co je skutečně nového
-
-### 1. Integrace oficiálního manuálu (PDF příloha)
-
-Uživatel nahrál `Barbbieri_XRot_95_EVO-2.pdf` jako "oficiální manuál pro autentičnost". Z toho mohu udělat **skutečný přínos**:
-
-- **Krok A:** Naparsovat PDF (`document--parse_document`), vytáhnout autentické technické specs, servisní intervaly, varování.
-- **Krok B:** Porovnat s daty v aplikaci:
-  - `mem://technical/hardware-spec` — ověřit, jestli model/CPU/RAM/GNSS odpovídají manuálu
-  - `mem://technical/maintenance-logic` — ověřit servisní intervaly (50/250/500 MTH atd.)
-  - DB tabulka `stroje` — opravit nesoulad, pokud existuje
-- **Krok C:** Zpřístupnit manuál uživatelům:
-  - Zkopírovat PDF do `public/manual/Barbieri_XRot_95_EVO.pdf`
-  - V `ManualPage.tsx` přidat sekci "Oficiální manuál výrobce" s odkazem na PDF (download + open in new tab)
-  - V AI assistantu (`ai-assistant/index.ts`) přidat reference, že manuál je dostupný
-
-### 2. Audit transparentnost pro uživatele
-
-Krátce v odpovědi vysvětlit, proč 4/4 body už platí — ne re-implementovat. Tohle je důležité, jinak bude uživatel posílat stejný audit dokola.
-
-## Plán implementace
-
-| Krok | Akce |
+| Feature | Stav |
 |---|---|
-| 1 | `document--parse_document` na `user-uploads://Barbbieri_XRot_95_EVO-2.pdf` — vytáhnout autentické specs + servisní intervaly |
-| 2 | Porovnat se současnými memory + DB `stroje` row. Pokud je nesoulad, navrhnout migration. |
-| 3 | `lov-copy` PDF do `public/manual/Barbieri_XRot_95_EVO.pdf` |
-| 4 | Upravit `src/pages/ManualPage.tsx` — přidat sekci "Oficiální manuál výrobce (PDF)" s download buttonem |
-| 5 | Aktualizovat memory `mem://technical/hardware-spec` a `mem://technical/maintenance-logic` autentickými daty z manuálu (pokud se liší) |
-| 6 | Update `supabase/functions/ai-assistant/index.ts` system prompt — zmínit, že má referenční manuál v `public/manual/` |
+| Seznam areálů + filtry + search | `AreasPage.tsx` |
+| Mapa s markery + clustering | `AreasMap.tsx` |
+| CSV/Excel export areálů | `exportAreasToExcel` v `lib/export.ts` |
+| Lucide-react ikony | Standard v projektu |
+| Offline queue | `lib/offline-queue.ts` |
+| Glassmorphism + Field design | `mem://style/field-design-system` |
 
-## Out of scope
+## Reality check vůči zadání
 
-- Reimplementace již hotových bodů (H1, MTH, slider, SVG) — kód to už řeší
-- DB migrace ke spec údajům — jen pokud manuál ukáže reálný nesoulad
+| Požadavek | Verdict | Důvod |
+|---|---|---|
+| Smart Toggle Posekáno/Neposekáno | **DELIVER** — ale jako derivace z `seceni_relace`, ne nový sloupec |
+| Konfety + vibrace | **MINIMAL** — přidám `navigator.vibrate(50)`, konfety vynechám (bundle vs. užitek pro operátora s rukavicí) |
+| Undo s dialogem | **DELIVER** — sonner toast s "Vrátit zpět" akcí, 5s timeout |
+| Historie změn (timestamp + operátor) | **EXISTUJE** — `seceni_relace` už má `user_id` + `datum_cas_start/konec` |
+| Geofencing auto-suggest | **DELIVER** — `navigator.geolocation` + haversine match nejbližšího areálu (do 200m) |
+| Progress dashboard "Dnes hotovo" | **DELIVER** — nahoře nad gridem, dnešní agregace ze `seceni_relace` |
+| Prioritizace dle dnů od sečení | **DELIVER** — výpočet z poslední `seceni_relace` per areál |
+| Fotodokumentace | **OUT OF SCOPE pro tento loop** — vyžaduje storage bucket + multi-step flow. Navrhuji jako follow-up. |
+| Poznámky z terénu | **DELIVER** — krátký textarea v dialog při odškrtnutí, uloží se do `seceni_relace.poznamky` |
+| PDF export protokolu | **DELIVER** — nová funkce `exportAreasReportPDF` v `lib/export.ts` |
+| Glassmorphism karty | **DELIVER** v `AreaCard.tsx` |
+| `framer-motion` | **NEINSTALOVAT** — projekt používá Tailwind animace + `tailwindcss-animate`. Memory `react-runtime-stability` říká minimalizovat deps. CSS `transition-all` + Tailwind keyframes pokryje vše potřebné. |
 
-## Otázky před start
+## Architektura — jak se "Posekáno" počítá
 
-Před parsing PDF se zeptám — přílohu mohu použít **jen na verifikaci textu/specs**, nebo také jako **stažitelný PDF v aplikaci**?
+Žádný nový sloupec v `arealy`. Stav = derivace:
+- Areál má v `seceni_relace` záznam s `datum_cas_konec >= start_of_today` → **Posekáno (dnes)**
+- Poslední sečení < 7 dní → **OK (zelená pulse off)**
+- 7–14 dní → **Střední priorita (žlutá)**
+- > 14 dní nebo nikdy → **Vysoká priorita (červená pulse)**
+
+Toggle "Posekat/Vrátit":
+- **Posekat** → INSERT do `seceni_relace` (start=now, konec=now, mth_start=current MTH, plocha = areal.plocha_m2, rezim='manuální', poznámky volitelné)
+- **Vrátit zpět** → DELETE posledního dnešního záznamu pro daný areál (RLS to už dovolí pro vlastníka)
+
+Offline: použít `saveOperationRecord` z existujícího `offline-queue.ts`, rozšířit o typ `seceni_quick`.
+
+## Soubory
+
+| Soubor | Akce |
+|---|---|
+| `src/components/areas/AreaCard.tsx` | **Nový** — glassmorphism karta s toggle, prioritou, last-mowed |
+| `src/components/areas/AreaProgressBar.tsx` | **Nový** — "Dnes hotovo: X/Y · Z %" |
+| `src/components/areas/QuickMowDialog.tsx` | **Nový** — dialog s polem pro poznámku + potvrzení |
+| `src/hooks/useAreaStatuses.ts` | **Nový** — agreguje `seceni_relace` per areál → status + lastMowed + priorita |
+| `src/hooks/useNearestArea.ts` | **Nový** — geolocation watcher + haversine match |
+| `src/pages/AreasPage.tsx` | Přidat ProgressBar nahoru, přepnout list view na grid `AreaCard`, filtry "Jen neposekané dnes" / "Vysoká priorita" |
+| `src/lib/offline-queue.ts` | Přidat `saveQuickMow(arealId, machineId, mth, note?)` a sync handler |
+| `src/lib/export.ts` | Přidat `exportAreasReportPDF(areas, sessions, dateRange)` |
+| `src/index.css` | Přidat `.glass-card` + keyframe `priority-pulse` |
+
+Bez DB migrace. Bez nových npm závislostí.
+
+## Out of scope (deliberate, návrh follow-up)
+
+- **Fotodokumentace** — vyžaduje storage bucket + RLS + UI flow, vlastní loop
+- **Konfety** — bundle (canvas-confetti ~14KB) vs. užitek pro operátora, vynecháno; vibration stačí
+- **framer-motion** — duplicitní s Tailwind animations už v projektu
+
+## Otázka před start
+
+Plocha "posekáno" v progress baru — počítat jako **součet `arealy.plocha_m2`** za posekané areály (rychlé, ale ignoruje skutečnou pokrytou plochu), nebo jako **součet `seceni_relace.plocha_posekana_m2`** (přesnější, ale závisí na vyplnění)? Default navrhuju **areal.plocha_m2** — odpovídá "100% areálu = posekáno odškrtnutím", což je field UX cíl.
