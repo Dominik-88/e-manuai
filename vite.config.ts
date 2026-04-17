@@ -48,9 +48,6 @@ export default defineConfig(({ mode }) => ({
       'react-router-dom',
       '@tanstack/react-query',
     ],
-    // Force re-prebundle to ensure all deps share the same React instance
-    // (critical after dependency or alias changes)
-    force: true,
   },
   build: {
     sourcemap: true,

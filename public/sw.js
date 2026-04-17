@@ -1,7 +1,7 @@
-// e-ManuAI Service Worker v1.0.0
+// e-ManuAI Service Worker v1.0.1
 // Three-tier caching strategy for offline-first PWA
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.1';
 const STATIC_CACHE = `emanuai-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `emanuai-dynamic-${CACHE_VERSION}`;
 const DATA_CACHE = `emanuai-data-${CACHE_VERSION}`;
@@ -20,6 +20,15 @@ const API_PATTERNS = [
   '/functions/v1/ai-assistant',
   '/rest/v1/',
 ];
+
+function shouldBypassCache(url) {
+  return (
+    url.pathname.startsWith('/node_modules/.vite/') ||
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/src/') ||
+    url.searchParams.has('v')
+  );
+}
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -68,6 +77,11 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http requests
   if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // Never cache Vite dev/preview modules or versioned chunk requests
+  if (shouldBypassCache(url)) {
     return;
   }
 
