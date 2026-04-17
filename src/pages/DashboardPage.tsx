@@ -5,6 +5,7 @@ import { useBarbieriiClient } from '@/hooks/useBarbieriiClient';
 import { MthDisplay } from '@/components/dashboard/MthDisplay';
 import { AreaStats } from '@/components/dashboard/AreaStats';
 import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
+import { ServiceIntervalsCompact } from '@/components/dashboard/ServiceIntervalsCompact';
 import { TelemetryLive } from '@/components/dashboard/TelemetryLive';
 import { MowingSessionRecorder } from '@/components/digital-twin/MowingSessionRecorder';
 import { SessionHistory } from '@/components/digital-twin/SessionHistory';
@@ -93,6 +94,11 @@ export default function DashboardPage() {
         {/* Area stats */}
         <section aria-label="Statistiky areálů">
           <AreaStats machineId={machine.id} />
+        </section>
+
+        {/* Service intervals - compact top 3 */}
+        <section aria-label="Servisní intervaly">
+          <ServiceIntervalsCompact machineId={machine.id} currentMth={machine.aktualni_mth} />
         </section>
 
         {/* Recent activity */}
